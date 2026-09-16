@@ -1,0 +1,27 @@
+package com.geoengine.core.noise;
+
+public enum NoiseDomain {
+    TECTONIC_BASE(0x9E3779B97F4A7C15L),
+    TECTONIC_DETAIL_A(0xBF58476D1CE4E5B9L),
+    TECTONIC_DETAIL_B(0x94D049BB133111EBL),
+    STRESS_X(0xA0761D6478BD642FL),
+    STRESS_Z(0xE7037ED1A0B428DBL),
+    EPOCH(0x8CBCEB690A87A5E3L),
+    CLIMATE_TEMP(0x1B8735932C4A78F5L),
+    CLIMATE_HUMID(0x27D4EB2F165667C5L),
+    EROSION(0x517CC1B727220A95L),
+    HYDROLOGY(0x3C6EF372FE94F82BL),
+    DEPOSITION(0x62E07BB30125EFD3L),
+    WARP(0x73C5AE89130B62E9L),
+    CAVE(0x854378A52140A7C1L);
+
+    private final long salt;
+
+    NoiseDomain(long salt) {
+        this.salt = salt;
+    }
+
+    public long getSalt() {
+        return salt;
+    }
+}

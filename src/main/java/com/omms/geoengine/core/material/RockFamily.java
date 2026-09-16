@@ -1,0 +1,12 @@
+package com.geoengine.core.material;
+
+public enum RockFamily {
+    SEDIMENTARY_SANDSTONE,
+    SEDIMENTARY_LIMESTONE,
+    IGNEOUS_GRANITE,
+    IGNEOUS_DIORITE,
+    IGNEOUS_ANDESITE,
+    METAMORPHIC_TUFF,
+    STANDARD_STONE,
+    DEEP_DEEPSLATE
+}
