@@ -1,5 +1,14 @@
 package com.geoengine.core.math;
 
+/**
+ * Immutable configuration for the GeoEngine terrain generator.
+ *
+ * <p>Construction validates the fundamental bounds and parameter constraints required by the
+ * terrain-generation pipeline. A successfully constructed instance therefore satisfies the
+ * invariants enforced by the compact constructor.
+ *
+ * <p>Use {@link #defaultOverworld(int)} for the built-in overworld configuration.
+ */
 public record GeoConfig(
     int generatorVersion,
     int dimensionId,
@@ -47,11 +56,17 @@ public record GeoConfig(
         }
         double maxJac = stressAmplitude * stressFrequency;
         if (maxJac > stressMaxJacobian) {
-            throw new IllegalArgumentException("Stress warp parameter exceeds Jacobian bound: " 
-                + maxJac + " > " + stressMaxJacobian);
+            throw new IllegalArgumentException(
+                "Stress warp parameter exceeds Jacobian bound: "
+                    + maxJac
+                    + " > "
+                    + stressMaxJacobian
+            );
         }
         if (climateMin < 0.0 || climateMax < climateMin) {
-            throw new IllegalArgumentException("Invalid climate bounds: 0 <= climateMin <= climateMax");
+            throw new IllegalArgumentException(
+                "Invalid climate bounds: 0 <= climateMin <= climateMax"
+            );
         }
         if (baseErosionRate < 0.0) {
             throw new IllegalArgumentException("Erosion rate cannot be negative");
@@ -72,6 +87,12 @@ public record GeoConfig(
         }
     }
 
+    /**
+     * Creates the built-in configuration for the overworld generator.
+     *
+     * @param version generator configuration version
+     * @return the default overworld configuration
+     */
     public static GeoConfig defaultOverworld(int version) {
         return new GeoConfig(
             version, 0, -64, 1984, 64,
