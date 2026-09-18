@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:the_nether",
+  "generator": {
+    "type": "geoengine:geo_chunk_generator",
+    "settings": "minecraft:nether",
+    "seed": 0,
+    "dimension_id": 1,
+    "biome_source": {
+      "type": "geoengine:geo_biome_source",
+      "seed": 0,
+      "dimension_id": 1
+    }
+  }
+}

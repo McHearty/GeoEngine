@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:overworld",
+  "generator": {
+    "type": "geoengine:geo_chunk_generator",
+    "settings": "minecraft:overworld",
+    "seed": 0,
+    "dimension_id": 0,
+    "biome_source": {
+      "type": "geoengine:geo_biome_source",
+      "seed": 0,
+      "dimension_id": 0
+    }
+  }
+}
