@@ -95,23 +95,23 @@ public final class ScalarFieldKernel implements FieldKernel {
             return sample.cellElevation - drop;
         }
 
-        if (profile.hasGlacialProcesses() && h0 > config.seaLevel() + 180.0) {
-        double gInt = Math.clamp((h0 - (config.seaLevel() + 180.0)) / 120.0, 0.0, 1.0);
+        if (profile.hasGlacialProcesses()) {
+            double gInt = Math.clamp((h0 - (config.seaLevel() + 200.0)) / 150.0, 0.0, 1.0);
             hPre += glacialField.evaluateUValleyModification(wx, wz, h0, slope, temp, gInt);
             hPre += glacialField.evaluateCirqueBowl(wx, wz, h0, temp);
         }
 
-        if (profile.hasKarstProcesses() && h0 > config.seaLevel() + 12.0) {
-            hPre += karstField.evaluateSinkholeRelief(wx, wz, temp, humid) * 0.5;
-            hPre += karstField.evaluateTowerKarstRelief(wx, wz, temp, humid) * 0.4;
+        if (profile.hasKarstProcesses()) {
+            hPre += karstField.evaluateSinkholeRelief(wx, wz, temp, humid);
+            hPre += karstField.evaluateTowerKarstRelief(wx, wz, temp, humid);
         }
 
         if (profile.hasAeolianProcesses()) {
             hPre += aeolianField.evaluateDuneRelief(wx, wz, temp, humid, slope);
         }
 
-        if (profile.hasVolcanicProcesses() && h0 > 240.0) {
-            hPre += volcanicField.evaluateVolcanicRelief(wx, wz) * 0.6;
+        if (profile.hasVolcanicProcesses() && h0 > 180.0) {
+            hPre += volcanicField.evaluateVolcanicRelief(wx, wz);
         }
 
         return hPre;
@@ -194,7 +194,6 @@ public final class ScalarFieldKernel implements FieldKernel {
         double hPreSW = evaluatePreFluvialSurface(wx - delta, wz + delta, evaluatePureH0(wx - delta, wz + delta), sample.temperature, sample.humidity, baseSlope);
         double hPreSE = evaluatePreFluvialSurface(wx + delta, wz + delta, evaluatePureH0(wx + delta, wz + delta), sample.temperature, sample.humidity, baseSlope);
 
-        // Execute Morphological Classification & hydrate sample.classificationBits (§98, §185)
         landformClassifier.classify(
             this, sample,
             hFinal, hPreN, hPreS, hPreW, hPreE,
@@ -249,6 +248,7 @@ public final class ScalarFieldKernel implements FieldKernel {
         final int macroDim = WorkerScratchpad.MACRO_GRID_DIM;
         final double invDelta = 0.25;
 
+        // Step 1: Interpolate H0 baseline, age, climate, erosion
         for (int lz = 0; lz < WorkerScratchpad.CHUNK_DIM; lz++) {
             double continuousZ = (lz + 4.0) * invDelta;
             int z0 = (int) continuousZ;
@@ -266,7 +266,10 @@ public final class ScalarFieldKernel implements FieldKernel {
 
                 int cIdx = (lz << 4) | lx;
 
-                scratchpad.surfaceGrid[cIdx] = bilerp(scratchpad.macroH0, idx00, idx10, idx01, idx11, fx, fz);
+                // Position-correct continuous interpolation
+                double h0 = bilerp(scratchpad.macroH0, idx00, idx10, idx01, idx11, fx, fz);
+                scratchpad.surfaceGrid[cIdx] = h0;
+                scratchpad.h0Grid[cIdx] = h0; // <--- Stores H0 for preliminary surface checks
                 scratchpad.ageGrid[cIdx] = bilerp(scratchpad.macroAge, idx00, idx10, idx01, idx11, fx, fz);
                 scratchpad.tempGrid[cIdx] = bilerp(scratchpad.macroTemp, idx00, idx10, idx01, idx11, fx, fz);
                 scratchpad.humidGrid[cIdx] = bilerp(scratchpad.macroHumid, idx00, idx10, idx01, idx11, fx, fz);
@@ -307,19 +310,16 @@ public final class ScalarFieldKernel implements FieldKernel {
                 int cIdx = (lz << 4) | lx;
                 double hC = scratchpad.surfaceGrid[cIdx];
 
-                // East/West neighbors: sample true continuous surface at boundaries
                 double hW = (lx > 0) ? scratchpad.surfaceGrid[(lz << 4) | (lx - 1)] 
                                      : evaluatePreFluvialSurface(wx - 1, wz, evaluatePureH0(wx - 1, wz), scratchpad.tempGrid[cIdx], scratchpad.humidGrid[cIdx], 0.2);
                 double hE = (lx < 15) ? scratchpad.surfaceGrid[(lz << 4) | (lx + 1)] 
                                       : evaluatePreFluvialSurface(wx + 1, wz, evaluatePureH0(wx + 1, wz), scratchpad.tempGrid[cIdx], scratchpad.humidGrid[cIdx], 0.2);
 
-                // North/South neighbors: sample true continuous surface at boundaries
                 double hN = (lz > 0) ? scratchpad.surfaceGrid[((lz - 1) << 4) | lx] 
                                      : evaluatePreFluvialSurface(wx, wz - 1, evaluatePureH0(wx, wz - 1), scratchpad.tempGrid[cIdx], scratchpad.humidGrid[cIdx], 0.2);
                 double hS = (lz < 15) ? scratchpad.surfaceGrid[((lz + 1) << 4) | lx] 
                                       : evaluatePreFluvialSurface(wx, wz + 1, evaluatePureH0(wx, wz + 1), scratchpad.tempGrid[cIdx], scratchpad.humidGrid[cIdx], 0.2);
 
-                // Central difference is now 100% continuous and identical on both sides of chunk seams
                 scratchpad.gradXGrid[cIdx] = (hE - hW) / (2.0 * delta);
                 scratchpad.gradZGrid[cIdx] = (hS - hN) / (2.0 * delta);
                 scratchpad.laplacianGrid[cIdx] = (hN + hS + hW + hE - 4.0 * hC) / d2;

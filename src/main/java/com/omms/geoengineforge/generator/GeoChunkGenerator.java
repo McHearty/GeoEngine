@@ -28,14 +28,19 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.StructureManager;
 import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.chunk.ChunkGeneratorStructureState;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.levelgen.Aquifer;
+import net.minecraft.world.level.levelgen.Beardifier;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.NoiseChunk;
 import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.WorldGenerationContext;
@@ -47,13 +52,10 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public class GeoChunkGenerator extends ChunkGenerator {
-
     public static final MapCodec<GeoChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(instance ->
         instance.group(
             BiomeSource.CODEC.fieldOf("biome_source").forGetter((GeoChunkGenerator gen) -> gen.biomeSource),
-            NoiseGeneratorSettings.CODEC.optionalFieldOf("settings")
-                .forGetter((GeoChunkGenerator gen) -> Optional.of(gen.settings)),
-            // 0 / missing = unbound until createState / level seed; non-zero = explicit override
+            NoiseGeneratorSettings.CODEC.optionalFieldOf("settings").forGetter((GeoChunkGenerator gen) -> Optional.of(gen.settings)),
             Codec.LONG.optionalFieldOf("seed", 0L).forGetter((GeoChunkGenerator gen) -> gen.worldSeed),
             Codec.INT.optionalFieldOf("dimension_id", 0).forGetter((GeoChunkGenerator gen) -> gen.dimensionId),
             RegistryOps.<NoiseGeneratorSettings, GeoChunkGenerator>retrieveGetter(Registries.NOISE_SETTINGS)
@@ -79,25 +81,21 @@ public class GeoChunkGenerator extends ChunkGenerator {
     private final GeoSurfaceMaterialWriter surfaceMaterialWriter = new GeoSurfaceMaterialWriter();
 
     public GeoChunkGenerator(
-        BiomeSource biomeSource,
-        Holder<NoiseGeneratorSettings> settings,
-        long worldSeed,
+        BiomeSource biomeSource, 
+        Holder<NoiseGeneratorSettings> settings, 
+        long worldSeed, 
         int dimensionId
     ) {
         super(biomeSource);
         this.worldSeed = worldSeed;
         this.dimensionId = dimensionId;
         this.settings = settings;
+
         this.profile = GeoDimensionProfile.getProfileFor(dimensionId, 1);
         this.config = this.profile.getConfig();
 
         NoiseGeneratorSettings noiseSettings = settings.value();
-        this.materialResolver = new MaterialResolver(
-            noiseSettings.defaultBlock(),
-            noiseSettings.defaultFluid(),
-            noiseSettings.seaLevel()
-        );
-
+        this.materialResolver = new MaterialResolver(noiseSettings.defaultBlock(), noiseSettings.defaultFluid(), noiseSettings.seaLevel());
         reseed(worldSeed);
     }
 
@@ -105,9 +103,8 @@ public class GeoChunkGenerator extends ChunkGenerator {
         this.worldSeed = seed;
         this.kernel = KernelProvider.createKernel(seed, this.profile);
         this.sectionClassifier = new SectionClassifier(this.config, this.kernel.getCaveField());
-        this.chunkRasterizer = new ChunkRasterizer(
-            this.kernel, this.sectionClassifier, this.materialResolver
-        );
+        this.chunkRasterizer = new ChunkRasterizer(this.kernel, this.sectionClassifier, this.materialResolver);
+
         if (this.biomeSource instanceof GeoBiomeSource geoBiomeSource) {
             geoBiomeSource.reseed(seed);
         }
@@ -128,10 +125,8 @@ public class GeoChunkGenerator extends ChunkGenerator {
 
     @Override
     public CompletableFuture<ChunkAccess> fillFromNoise(
-        Blender blender,
-        RandomState randomState,
-        StructureManager structureManager,
-        ChunkAccess chunk
+        Blender blender, RandomState randomState, 
+        StructureManager structureManager, ChunkAccess chunk
     ) {
         rasterizeChunk(chunk);
         return CompletableFuture.completedFuture(chunk);
@@ -145,34 +140,20 @@ public class GeoChunkGenerator extends ChunkGenerator {
         WorkerScratchpad scratchpad = ScratchpadProvider.get();
         kernel.rasterizeSurfaceChunk(scratchpad, chunkWorldX, chunkWorldZ);
 
-        // HeightmapWriter clamps each column to chunk.getMinBuildHeight() .. getMaxBuildHeight()-1
-        // so surfaces cannot overflow the dimension-type heightmap bit storage.
         HeightmapWriter.populate(
-            chunk,
-            scratchpad.surfaceGrid,
-            config.seaLevel(),
-            materialResolver.resolveSolid(config.seaLevel())
+            chunk, scratchpad.surfaceGrid, config.seaLevel(), materialResolver.resolveSolid(config.seaLevel())
         );
 
         chunkRasterizer.rasterizeSections(
-            chunk.getSections(),
-            chunk.getMinSection(),
-            scratchpad,
-            chunkWorldX,
-            chunkWorldZ,
-            config.seaLevel()
+            chunk.getSections(), chunk.getMinSection(), scratchpad,
+            chunkWorldX, chunkWorldZ, config.seaLevel()
         );
     }
 
-    /**
-     * Evaluates data-driven SurfaceRules via GeoSurfaceMaterialWriter without NoiseChunk (§15).
-     */
     @Override
     public void buildSurface(
-        WorldGenRegion level,
-        StructureManager structureManager,
-        RandomState randomState,
-        ChunkAccess chunk
+        WorldGenRegion level, StructureManager structureManager, 
+        RandomState randomState, ChunkAccess chunk
     ) {
         if (this.worldSeed == 0L && level.getSeed() != 0L) {
             reseed(level.getSeed());
@@ -182,45 +163,53 @@ public class GeoChunkGenerator extends ChunkGenerator {
             return;
         }
 
-        WorkerScratchpad scratchpad = ScratchpadProvider.get();
-        WorldGenerationContext genContext = new WorldGenerationContext(this, level);
-
-        surfaceMaterialWriter.apply(
-            level,
-            chunk,
-            config,
-            scratchpad,
-            this.settings.value().surfaceRule(),
-            genContext
-        );
-
-        if (dimensionId == 0) {
-            materializeSpecialFeatures(chunk);
-        }
-    }
-
-    private void materializeSpecialFeatures(ChunkAccess chunk) {
         ChunkPos pos = chunk.getPos();
         int originX = pos.getMinBlockX();
         int originZ = pos.getMinBlockZ();
 
-        WorkerScratchpad sp = ScratchpadProvider.get();
+        WorkerScratchpad scratchpad = ScratchpadProvider.get();
+        // Crucial fix: Freshly rasterize scratchpad for this chunk on this worker thread (§17, §18)
+        kernel.rasterizeSurfaceChunk(scratchpad, originX, originZ);
+
+        WorldGenerationContext genContext = new WorldGenerationContext(this, level);
+
+        // Apply data-driven SurfaceRules without NoiseChunk
+        surfaceMaterialWriter.apply(
+            level, chunk, config, scratchpad, 
+            this.settings.value().surfaceRule(), genContext
+        );
+
+        // Strictly gated special features in the Overworld
+        if (dimensionId == 0) {
+            materializeSpecialFeatures(chunk, scratchpad, originX, originZ);
+        }
+    }
+
+    private void materializeSpecialFeatures(ChunkAccess chunk, WorkerScratchpad sp, int originX, int originZ) {
         SpecialFeatureDetector featureDetector = new SpecialFeatureDetector(config);
         BlockPos.MutableBlockPos mutPos = new BlockPos.MutableBlockPos();
 
-        for (int lz = 0; lz < 16; lz++) {
+        for (int lz = 1; lz < 15; lz++) {
             int wz = originZ + lz;
-            for (int lx = 0; lx < 16; lx++) {
+            for (int lx = 1; lx < 15; lx++) {
                 int wx = originX + lx;
+                int cIdx = (lz << 4) | lx;
 
                 sp.populateSampleFromColumn(lx, lz, wx, wz);
-                double slope = sp.sample.gradMagnitude;
-                double downstreamDrop = slope * 10.0;
 
-                SpecialFeatureDetector.FeatureType feature =
-                    featureDetector.detectFeature(sp.sample, downstreamDrop);
+                // Compute real downstream drop to steepest cardinal neighbor
+                double hC = sp.surfaceGrid[cIdx];
+                double hN = sp.surfaceGrid[((lz - 1) << 4) | lx];
+                double hS = sp.surfaceGrid[((lz + 1) << 4) | lx];
+                double hW = sp.surfaceGrid[(lz << 4) | (lx - 1)];
+                double hE = sp.surfaceGrid[(lz << 4) | (lx + 1)];
+
+                double minNeighbor = Math.min(Math.min(hN, hS), Math.min(hW, hE));
+                double actualDrop = Math.max(0.0, hC - minNeighbor);
+
+                SpecialFeatureDetector.FeatureType feature = featureDetector.detectFeature(sp.sample, actualDrop);
                 if (feature != SpecialFeatureDetector.FeatureType.NONE) {
-                    SpecialFeatureGenerator.materializeFeature(chunk, mutPos, feature, sp.sample);
+                    SpecialFeatureGenerator.materializeFeature(chunk, mutPos, feature, sp.sample, wx, wz);
                 }
             }
         }
@@ -228,66 +217,35 @@ public class GeoChunkGenerator extends ChunkGenerator {
 
     @Override
     public void applyBiomeDecoration(
-        WorldGenLevel level,
-        ChunkAccess chunk,
+        WorldGenLevel level, ChunkAccess chunk, 
         StructureManager structureManager
     ) {
         super.applyBiomeDecoration(level, chunk, structureManager);
     }
 
-    @Override
-    public void spawnOriginalMobs(WorldGenRegion level) {}
+    @Override public void spawnOriginalMobs(WorldGenRegion level) {}
 
     @Override
     public void applyCarvers(
-        WorldGenRegion level,
-        long seed,
-        RandomState randomState,
-        BiomeManager biomeManager,
-        StructureManager structureManager,
-        ChunkAccess chunk,
+        WorldGenRegion level, long seed, RandomState randomState, 
+        BiomeManager biomeManager, StructureManager structureManager, ChunkAccess chunk, 
         GenerationStep.Carving step
     ) {}
 
-    @Override
-    public int getGenDepth() {
-        return config.worldMaxY() - config.worldMinY();
-    }
+    @Override public int getGenDepth() { return config.worldMaxY() - config.worldMinY(); }
+    @Override public int getSeaLevel() { return config.seaLevel(); }
+    @Override public int getMinY() { return config.worldMinY(); }
 
     @Override
-    public int getSeaLevel() {
-        return config.seaLevel();
-    }
-
-    @Override
-    public int getMinY() {
-        return config.worldMinY();
-    }
-
-    @Override
-    public int getBaseHeight(
-        int x,
-        int z,
-        Heightmap.Types type,
-        LevelHeightAccessor level,
-        RandomState randomState
-    ) {
+    public int getBaseHeight(int x, int z, Heightmap.Types type, LevelHeightAccessor level, RandomState randomState) {
         WorkerScratchpad sp = ScratchpadProvider.get();
         kernel.evaluateFullColumn(x, z, sp.sample);
-
         int surf = (int) Math.round(sp.sample.finalSurface);
-        int minY = level.getMinBuildHeight();
-        int maxY = level.getMaxBuildHeight() - 1;
-        return Math.clamp(surf, minY, maxY);
+        return Math.clamp(surf, level.getMinBuildHeight(), level.getMaxBuildHeight() - 1);
     }
 
     @Override
-    public net.minecraft.world.level.NoiseColumn getBaseColumn(
-        int x,
-        int z,
-        LevelHeightAccessor level,
-        RandomState randomState
-    ) {
+    public net.minecraft.world.level.NoiseColumn getBaseColumn(int x, int z, LevelHeightAccessor level, RandomState randomState) {
         int minY = level.getMinBuildHeight();
         int maxY = level.getMaxBuildHeight() - 1;
 

@@ -20,6 +20,7 @@ public final class WorkerScratchpad {
     public static final int CHUNK_DIM = 16;
     public static final int CHUNK_SURFACE_SIZE = CHUNK_DIM * CHUNK_DIM; // 256
     public final double[] surfaceGrid = new double[CHUNK_SURFACE_SIZE];
+    public final double[] h0Grid = new double[CHUNK_SURFACE_SIZE]; // Pre-carve preliminary surface (§8.9)
     public final double[] gradXGrid = new double[CHUNK_SURFACE_SIZE];
     public final double[] gradZGrid = new double[CHUNK_SURFACE_SIZE];
     public final double[] laplacianGrid = new double[CHUNK_SURFACE_SIZE];
@@ -32,7 +33,7 @@ public final class WorkerScratchpad {
     public final double[] flowAccGrid = new double[CHUNK_SURFACE_SIZE];
     public final double[] riverIncisionGrid = new double[CHUNK_SURFACE_SIZE];
     public final double[] depositionGrid = new double[CHUNK_SURFACE_SIZE];
-    public final int[] classificationBitsGrid = new int[CHUNK_SURFACE_SIZE]; // Persists landform bits
+    public final int[] classificationBitsGrid = new int[CHUNK_SURFACE_SIZE];
 
     // Voxel density buffer
     public static final int SECTION_VOXELS = 4096;
@@ -56,7 +57,7 @@ public final class WorkerScratchpad {
     public final double[] simdCVals = new double[MAX_SIMD_LANES];
     public final double[] simdResults = new double[MAX_SIMD_LANES];
 
-    // Thread-local DrainageGraph cache registers (Zero hot-path allocations)
+    // Cache registers
     public long cachedHydrologyRegionKey = Long.MIN_VALUE;
     public com.omms.geoenginecore.hydrology.DrainageGraph cachedHydrologyGraph = null;
 
@@ -66,6 +67,7 @@ public final class WorkerScratchpad {
         int idx = (lz << 4) | lx;
         sample.worldX = worldX;
         sample.worldZ = worldZ;
+        sample.surfaceH0 = h0Grid[idx];
         sample.age = ageGrid[idx];
         sample.temperature = tempGrid[idx];
         sample.humidity = humidGrid[idx];
@@ -79,6 +81,6 @@ public final class WorkerScratchpad {
         sample.riverIncision = riverIncisionGrid[idx];
         sample.deposition = depositionGrid[idx];
         sample.finalSurface = surfaceGrid[idx];
-        sample.classificationBits = classificationBitsGrid[idx]; // Hydrates classification bits
+        sample.classificationBits = classificationBitsGrid[idx];
     }
 }
