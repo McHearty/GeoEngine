@@ -1,5 +1,5 @@
 {
-  "type": "minecraft:the_nether",
+  "type": "geoengine:the_nether",
   "generator": {
     "type": "geoengine:geo_chunk_generator",
     "settings": "minecraft:nether",

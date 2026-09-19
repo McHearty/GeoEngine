@@ -1,5 +1,5 @@
 {
-  "type": "minecraft:the_end",
+  "type": "geoengine:the_end",
   "generator": {
     "type": "geoengine:geo_chunk_generator",
     "settings": "minecraft:end",

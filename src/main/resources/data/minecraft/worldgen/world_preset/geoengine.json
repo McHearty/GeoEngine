@@ -1,7 +1,7 @@
 {
   "dimensions": {
     "minecraft:overworld": {
-      "type": "minecraft:overworld",
+      "type": "geoengine:overworld",
       "generator": {
         "type": "geoengine:geo_chunk_generator",
         "settings": "minecraft:overworld",
@@ -13,7 +13,7 @@
       }
     },
     "minecraft:the_nether": {
-      "type": "minecraft:the_nether",
+      "type": "geoengine:the_nether",
       "generator": {
         "type": "geoengine:geo_chunk_generator",
         "settings": "minecraft:nether",
@@ -25,7 +25,7 @@
       }
     },
     "minecraft:the_end": {
-      "type": "minecraft:the_end",
+      "type": "geoengine:the_end",
       "generator": {
         "type": "geoengine:geo_chunk_generator",
         "settings": "minecraft:end",

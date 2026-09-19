@@ -241,9 +241,20 @@ public class GeoChunkGenerator extends ChunkGenerator {
         GenerationStep.Carving step
     ) {}
 
-    @Override public int getGenDepth() { return config.worldMaxY() - config.worldMinY(); }
-    @Override public int getSeaLevel() { return config.seaLevel(); }
-    @Override public int getMinY() { return config.worldMinY(); }
+    @Override
+    public int getGenDepth() {
+        return config.worldMaxY() - config.worldMinY(); // 2048
+    }
+
+    @Override
+    public int getSeaLevel() {
+        return config.seaLevel(); // 64
+    }
+
+    @Override
+    public int getMinY() {
+        return config.worldMinY(); // -64
+    }
 
     @Override
     public int getBaseHeight(int x, int z, Heightmap.Types type, LevelHeightAccessor level, RandomState randomState) {

@@ -1,5 +1,5 @@
 {
-  "type": "minecraft:overworld",
+  "type": "geoengine:overworld",
   "generator": {
     "type": "geoengine:geo_chunk_generator",
     "settings": "minecraft:overworld",
