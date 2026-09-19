@@ -19,7 +19,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.core.HolderGetter;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.RegistryOps;
@@ -35,6 +35,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.chunk.ChunkGeneratorStructureState;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.levelgen.Aquifer;
 import net.minecraft.world.level.levelgen.Beardifier;
@@ -45,19 +46,19 @@ import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.WorldGenerationContext;
 import net.minecraft.world.level.levelgen.blending.Blender;
+import net.minecraft.world.level.levelgen.structure.StructureSet;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public class GeoChunkGenerator extends ChunkGenerator {
-    // Robust codec: "settings" is optional with automatic fallback to vanilla presets
     public static final MapCodec<GeoChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(instance ->
         instance.group(
-            BiomeSource.CODEC.fieldOf("biome_source").forGetter(gen -> gen.biomeSource),
-            NoiseGeneratorSettings.CODEC.optionalFieldOf("settings").forGetter(gen -> Optional.of(gen.settings)),
-            Codec.LONG.optionalFieldOf("seed", 0L).forGetter(gen -> gen.worldSeed),
-            Codec.INT.optionalFieldOf("dimension_id", 0).forGetter(gen -> gen.dimensionId),
+            BiomeSource.CODEC.fieldOf("biome_source").forGetter((GeoChunkGenerator gen) -> gen.biomeSource),
+            NoiseGeneratorSettings.CODEC.optionalFieldOf("settings").forGetter((GeoChunkGenerator gen) -> Optional.of(gen.settings)),
+            Codec.LONG.optionalFieldOf("seed", 0L).forGetter((GeoChunkGenerator gen) -> gen.worldSeed),
+            Codec.INT.optionalFieldOf("dimension_id", 0).forGetter((GeoChunkGenerator gen) -> gen.dimensionId),
             RegistryOps.<NoiseGeneratorSettings, GeoChunkGenerator>retrieveGetter(Registries.NOISE_SETTINGS)
         ).apply(instance, (biomeSource, optSettings, seed, dimId, settingsGetter) -> {
             Holder<NoiseGeneratorSettings> resolvedSettings = optSettings.orElseGet(() -> {
@@ -69,15 +70,15 @@ public class GeoChunkGenerator extends ChunkGenerator {
         })
     );
 
-    private final long worldSeed;
+    private long worldSeed;
     private final int dimensionId;
     private final Holder<NoiseGeneratorSettings> settings;
     private final GeoConfig config;
     private final DimensionProfile profile;
-    private final FieldKernel kernel;
-    private final SectionClassifier sectionClassifier;
-    private final MaterialResolver materialResolver;
-    private final ChunkRasterizer chunkRasterizer;
+    private FieldKernel kernel;
+    private SectionClassifier sectionClassifier;
+    private MaterialResolver materialResolver;
+    private ChunkRasterizer chunkRasterizer;
     private final Aquifer.FluidPicker globalFluidPicker;
 
     public GeoChunkGenerator(
@@ -93,15 +94,32 @@ public class GeoChunkGenerator extends ChunkGenerator {
 
         this.profile = GeoDimensionProfile.getProfileFor(dimensionId, 1);
         this.config = this.profile.getConfig();
-        this.kernel = KernelProvider.createKernel(worldSeed, this.profile);
-        this.sectionClassifier = new SectionClassifier(this.config, this.kernel.getCaveField());
 
         NoiseGeneratorSettings noiseSettings = settings.value();
         Aquifer.FluidStatus fluidStatus = new Aquifer.FluidStatus(noiseSettings.seaLevel(), noiseSettings.defaultFluid());
         this.globalFluidPicker = (x, y, z) -> fluidStatus;
 
         this.materialResolver = new MaterialResolver(noiseSettings.defaultBlock(), noiseSettings.defaultFluid(), noiseSettings.seaLevel());
+        reseed(worldSeed);
+    }
+
+    public synchronized void reseed(long seed) {
+        this.worldSeed = seed;
+        this.kernel = KernelProvider.createKernel(seed, this.profile);
+        this.sectionClassifier = new SectionClassifier(this.config, this.kernel.getCaveField());
         this.chunkRasterizer = new ChunkRasterizer(this.kernel, this.sectionClassifier, this.materialResolver);
+
+        if (this.biomeSource instanceof GeoBiomeSource geoBiomeSource) {
+            geoBiomeSource.reseed(seed);
+        }
+    }
+
+    @Override
+    public ChunkGeneratorStructureState createState(
+        HolderLookup<StructureSet> structureSetLookup, RandomState randomState, long seed
+    ) {
+        reseed(seed);
+        return super.createState(structureSetLookup, randomState, seed);
     }
 
     @Override
@@ -141,6 +159,10 @@ public class GeoChunkGenerator extends ChunkGenerator {
         WorldGenRegion level, StructureManager structureManager, 
         RandomState randomState, ChunkAccess chunk
     ) {
+        if (this.worldSeed == 0L && level.getSeed() != 0L) {
+            reseed(level.getSeed());
+        }
+
         if (!SharedConstants.debugVoidTerrain(chunk.getPos())) {
             WorldGenerationContext context = new WorldGenerationContext(this, level);
             Registry<Biome> biomes = level.registryAccess().registryOrThrow(Registries.BIOME);
@@ -157,7 +179,6 @@ public class GeoChunkGenerator extends ChunkGenerator {
                 )
             );
 
-            // Hand off surface block replacement to Minecraft's SurfaceRules
             randomState.surfaceSystem().buildSurface(
                 randomState,
                 level.getBiomeManager(),
@@ -169,8 +190,9 @@ public class GeoChunkGenerator extends ChunkGenerator {
                 noiseSettings.surfaceRule()
             );
 
-            // Materialize deterministic water/geothermal features
-            materializeSpecialFeatures(chunk);
+            if (dimensionId == 0) {
+                materializeSpecialFeatures(chunk);
+            }
         }
     }
 
@@ -242,6 +264,6 @@ public class GeoChunkGenerator extends ChunkGenerator {
 
     @Override
     public void addDebugScreenInfo(List<String> info, RandomState randomState, BlockPos pos) {
-        info.add("GeoEngine 1.21.1: Seed=" + worldSeed + " Dim=" + dimensionId);
+        info.add(String.format("GeoEngine 1.21.1: Seed=%d Dim=%d", worldSeed, dimensionId));
     }
 }
