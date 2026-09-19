@@ -1,8 +1,9 @@
 package com.omms.geoenginecore.memory;
 
 import com.omms.geoenginecore.hydrology.DrainageGraph;
+import com.omms.geoenginecore.math.ScalarFieldKernel;
+
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 
 public final class HydrologyRegionCache {
     private final ConcurrentHashMap<Long, DrainageGraph> regionFlowCache = new ConcurrentHashMap<>();
@@ -15,9 +16,24 @@ public final class HydrologyRegionCache {
         return h ^ (h >>> 31);
     }
 
-    public DrainageGraph getOrCompute(long worldSeed, long configHash, int regionX, int regionZ, Supplier<DrainageGraph> computer) {
+    /**
+     * Direct retrieval without lambda or Long wrapper allocations (§62).
+     */
+    public DrainageGraph getOrCompute(
+        long worldSeed, long configHash, int regionX, int regionZ,
+        ScalarFieldKernel kernel, int regionOriginX, int regionOriginZ
+    ) {
         long key = packScopedKey(worldSeed, configHash, regionX, regionZ);
-        return regionFlowCache.computeIfAbsent(key, k -> computer.get());
+        DrainageGraph existing = regionFlowCache.get(key);
+        if (existing != null) {
+            return existing;
+        }
+
+        DrainageGraph created = new DrainageGraph();
+        created.buildRegion(kernel, regionOriginX, regionOriginZ);
+
+        DrainageGraph prev = regionFlowCache.putIfAbsent(key, created);
+        return prev != null ? prev : created;
     }
 
     public void clear() {

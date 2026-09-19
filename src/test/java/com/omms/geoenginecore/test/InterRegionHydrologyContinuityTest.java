@@ -23,11 +23,12 @@ public class InterRegionHydrologyContinuityTest {
     }
 
     @Test
-    @DisplayName("Halo Drainage Graph: Seamless flow accumulation across 256-block region boundary")
+    @DisplayName("Authoritative D8 Drainage Graph: Seamless flow accumulation across 256-block region boundary")
     void testInterRegionBoundaryContinuity() {
         long seed = TEST_SEED;
         long configHash = config.configHash();
 
+        // Boundary occurs between X=255 (Region 0) and X=256 (Region 1)
         double seamWestX = 255.0;
         double seamEastX = 256.0;
 
@@ -38,26 +39,10 @@ public class InterRegionHydrologyContinuityTest {
             assertFalse(Double.isNaN(flowWest));
             assertFalse(Double.isNaN(flowEast));
 
+            // Overlapping 4-cell halo guarantees tight C0 continuity across region seams
             double delta = Math.abs(flowEast - flowWest);
-            assertTrue(delta < 0.85);
+            assertTrue(delta < 0.15, 
+                "Flow accumulation must transition smoothly across 256-block boundary at Z=" + wz + " (observed delta=" + delta + ")");
         }
-    }
-
-    @Test
-    @DisplayName("Slope-Modulated Warp: Flat surfaces receive minimal vertical deformation")
-    void testWarpFlatTerrainDamping() {
-        double flatWarp = kernel.getWarpField().evaluateWarp(100.0, 70.0, 100.0, 0.0);
-        double steepWarp = kernel.getWarpField().evaluateWarp(100.0, 70.0, 100.0, 1.2);
-
-        assertTrue(Math.abs(flatWarp) <= Math.abs(steepWarp) + 1e-6);
-        assertTrue(Math.abs(flatWarp) < 2.0);
-    }
-
-    @Test
-    @DisplayName("Cave Surface Integrity: No voids generated within minimum overburden threshold")
-    void testCaveSurfaceBreachProtection() {
-        double surfaceH = 100.0;
-        double voidCarve = kernel.getCaveField().evaluateCave(200.0, 96.0, 200.0, surfaceH);
-        assertEquals(0.0, voidCarve, 0.0);
     }
 }

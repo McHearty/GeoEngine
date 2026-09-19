@@ -56,6 +56,10 @@ public final class WorkerScratchpad {
     public final double[] simdCVals = new double[MAX_SIMD_LANES];
     public final double[] simdResults = new double[MAX_SIMD_LANES];
 
+    // Thread-local DrainageGraph cache registers (Zero hot-path allocations)
+    public long cachedHydrologyRegionKey = Long.MIN_VALUE;
+    public com.omms.geoenginecore.hydrology.DrainageGraph cachedHydrologyGraph = null;
+
     public WorkerScratchpad() {}
 
     public void populateSampleFromColumn(int lx, int lz, int worldX, int worldZ) {

@@ -1,50 +1,79 @@
 package com.omms.geoenginecore.hydrology;
 
 import com.omms.geoenginecore.math.ScalarFieldKernel;
+import com.omms.geoenginecore.memory.HydrologyRegionCache;
+import com.omms.geoenginecore.memory.ScratchpadProvider;
+import com.omms.geoenginecore.memory.WorkerScratchpad;
 
 public final class DrainageRouter {
-    private static final double CELL_SCALE = 0.0625; // 1 / 16.0
+    public static final int REGION_SPAN = DrainageGraph.CORE_CELLS * DrainageGraph.CELL_SIZE; // 256 blocks
+    public static final double BLEND_MARGIN = 16.0; // 1-cell (16-block) transition margin
 
+    private final HydrologyRegionCache regionCache = new HydrologyRegionCache();
+
+    /**
+     * Authoritative D8 flow accumulation query (§26, §27).
+     * Smoothly blends across 256-block region seams to maintain strict C0 continuity.
+     */
     public double computeAccumulationProxy(ScalarFieldKernel kernel, long worldSeed, long configHash, double wx, double wz) {
-        double cellX = wx * CELL_SCALE;
-        double cellZ = wz * CELL_SCALE;
+        int rx = (int) Math.floor(wx / (double) REGION_SPAN);
+        int rz = (int) Math.floor(wz / (double) REGION_SPAN);
 
-        int x0 = (int) Math.floor(cellX);
-        int z0 = (int) Math.floor(cellZ);
-        double fx = cellX - x0;
-        double fz = cellZ - z0;
+        double localX = wx - (rx * REGION_SPAN);
+        double localZ = wz - (rz * REGION_SPAN);
 
-        // Sample 4 continuous coarse lattice nodes (0 heap allocations)
-        double a00 = evaluateCellAccumulation(kernel, x0, z0);
-        double a10 = evaluateCellAccumulation(kernel, x0 + 1, z0);
-        double a01 = evaluateCellAccumulation(kernel, x0, z0 + 1);
-        double a11 = evaluateCellAccumulation(kernel, x0 + 1, z0 + 1);
+        // Primary region graph
+        DrainageGraph primaryGraph = getGraph(kernel, worldSeed, configHash, rx, rz);
+        double primaryAcc = primaryGraph.sampleAccumulation(wx, wz);
 
-        double rawAcc = (1.0 - fx) * (1.0 - fz) * a00
-                      + fx * (1.0 - fz) * a10
-                      + (1.0 - fx) * fz * a01
-                      + fx * fz * a11;
+        // --- Seamless Boundary Blending (X-Axis) ---
+        if (localX < BLEND_MARGIN) {
+            double u = (localX + BLEND_MARGIN) / (2.0 * BLEND_MARGIN); // 0.0 at -16 -> 0.5 at 0 -> 1.0 at +16
+            DrainageGraph westGraph = getGraph(kernel, worldSeed, configHash, rx - 1, rz);
+            double westAcc = westGraph.sampleAccumulation(wx, wz);
+            return (1.0 - u) * westAcc + u * primaryAcc;
+        } else if (localX > REGION_SPAN - BLEND_MARGIN) {
+            double u = (localX - (REGION_SPAN - BLEND_MARGIN)) / (2.0 * BLEND_MARGIN); // 0.0 at 240 -> 0.5 at 256 -> 1.0 at 272
+            DrainageGraph eastGraph = getGraph(kernel, worldSeed, configHash, rx + 1, rz);
+            double eastAcc = eastGraph.sampleAccumulation(wx, wz);
+            return (1.0 - u) * primaryAcc + u * eastAcc;
+        }
 
-        return Math.log1p(Math.max(0.0, rawAcc));
+        // --- Seamless Boundary Blending (Z-Axis) ---
+        if (localZ < BLEND_MARGIN) {
+            double v = (localZ + BLEND_MARGIN) / (2.0 * BLEND_MARGIN);
+            DrainageGraph northGraph = getGraph(kernel, worldSeed, configHash, rx, rz - 1);
+            double northAcc = northGraph.sampleAccumulation(wx, wz);
+            return (1.0 - v) * northAcc + v * primaryAcc;
+        } else if (localZ > REGION_SPAN - BLEND_MARGIN) {
+            double v = (localZ - (REGION_SPAN - BLEND_MARGIN)) / (2.0 * BLEND_MARGIN);
+            DrainageGraph southGraph = getGraph(kernel, worldSeed, configHash, rx, rz + 1);
+            double southAcc = southGraph.sampleAccumulation(wx, wz);
+            return (1.0 - v) * primaryAcc + v * southAcc;
+        }
+
+        return primaryAcc;
     }
 
-    private double evaluateCellAccumulation(ScalarFieldKernel kernel, int cx, int cz) {
-        double centerH = kernel.evaluatePureH0(cx * 16.0, cz * 16.0);
-        double acc = 1.0;
+    private DrainageGraph getGraph(ScalarFieldKernel kernel, long worldSeed, long configHash, int rx, int rz) {
+        long key = HydrologyRegionCache.packScopedKey(worldSeed, configHash, rx, rz);
+        WorkerScratchpad sp = ScratchpadProvider.get();
 
-        for (int dz = -2; dz <= 2; dz++) {
-            for (int dx = -2; dx <= 2; dx++) {
-                if (dx == 0 && dz == 0) continue;
-                double nx = (cx + dx) * 16.0;
-                double nz = (cz + dz) * 16.0;
-                double nH = kernel.evaluatePureH0(nx, nz);
-                if (nH > centerH) {
-                    double dist = Math.sqrt(dx * dx + dz * dz);
-                    double slope = (nH - centerH) / (dist * 16.0);
-                    acc += slope * 10.0;
-                }
-            }
+        // Fast-path: thread-local scratchpad register (0 allocations, 0 map lookups on interior columns)
+        if (sp.cachedHydrologyRegionKey == key && sp.cachedHydrologyGraph != null) {
+            return sp.cachedHydrologyGraph;
         }
-        return acc;
+
+        int originX = rx * REGION_SPAN;
+        int originZ = rz * REGION_SPAN;
+        DrainageGraph graph = regionCache.getOrCompute(worldSeed, configHash, rx, rz, kernel, originX, originZ);
+
+        sp.cachedHydrologyRegionKey = key;
+        sp.cachedHydrologyGraph = graph;
+        return graph;
+    }
+
+    public HydrologyRegionCache getRegionCache() {
+        return regionCache;
     }
 }
