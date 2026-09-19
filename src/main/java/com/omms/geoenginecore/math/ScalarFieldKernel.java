@@ -161,6 +161,7 @@ public final class ScalarFieldKernel implements FieldKernel {
         sample.gradMagnitude = Math.sqrt(sample.gradX * sample.gradX + sample.gradZ * sample.gradZ);
         sample.laplacian = (hPreN + hPreS + hPreW + hPreE - 4.0 * hPre) / (delta * delta);
 
+        // Fluvial Incision
         double flowAcc = 0.0;
         double incision = 0.0;
         if (profile.hasFluvialHydrology()) {
@@ -266,10 +267,9 @@ public final class ScalarFieldKernel implements FieldKernel {
 
                 int cIdx = (lz << 4) | lx;
 
-                // Position-correct continuous interpolation
                 double h0 = bilerp(scratchpad.macroH0, idx00, idx10, idx01, idx11, fx, fz);
                 scratchpad.surfaceGrid[cIdx] = h0;
-                scratchpad.h0Grid[cIdx] = h0; // <--- Stores H0 for preliminary surface checks
+                scratchpad.h0Grid[cIdx] = h0;
                 scratchpad.ageGrid[cIdx] = bilerp(scratchpad.macroAge, idx00, idx10, idx01, idx11, fx, fz);
                 scratchpad.tempGrid[cIdx] = bilerp(scratchpad.macroTemp, idx00, idx10, idx01, idx11, fx, fz);
                 scratchpad.humidGrid[cIdx] = bilerp(scratchpad.macroHumid, idx00, idx10, idx01, idx11, fx, fz);
@@ -299,7 +299,7 @@ public final class ScalarFieldKernel implements FieldKernel {
             }
         }
 
-        // 2. Gradients and Laplacian on H_pre (Seamless boundary halo sampling, §76)
+        // 2. Gradients and Laplacian on H_pre
         final double delta = 1.0;
         final double d2 = delta * delta;
 
@@ -345,10 +345,12 @@ public final class ScalarFieldKernel implements FieldKernel {
 
                 double flowAcc = 0.0;
                 double incision = 0.0;
+
                 if (profile.hasFluvialHydrology()) {
                     flowAcc = evaluateFullFlowAccumulation(wx, wz);
                     incision = riverField.computeIncision(flowAcc, slope, climateMult);
                 }
+
                 double hStar = hPre - incision;
 
                 double deposition = 0.0;

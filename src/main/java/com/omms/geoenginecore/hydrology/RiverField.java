@@ -11,20 +11,21 @@ public final class RiverField {
         this.channelSteepness = config.riverChannelSteepness();
     }
 
+    /**
+     * Evaluates channel incision depth R for a river thalweg (§28).
+     * Lowlands maintain an incision baseline so trunk rivers carve defined beds down to the water table.
+     */
     public double computeIncision(double flowAccumulation, double slopeMagnitude, double climateMultiplier) {
-        if (flowAccumulation <= 0.2) {
+        if (flowAccumulation <= 1.8) {
             return 0.0;
         }
 
-        double flowStrength = 1.0 - Math.exp(-flowAccumulation * channelSteepness);
-        double slopeFactor = Math.min(2.5, slopeMagnitude * 1.5);
-        double rBase = 24.0 * flowStrength * slopeFactor * climateMultiplier;
-        double rMax = maxIncisionDepth * Math.min(1.0, slopeFactor + 0.2);
+        double flowStrength = 1.0 - Math.exp(-(flowAccumulation - 1.8) * channelSteepness);
+        // Lowlands (slope ≈ 0) maintain a baseline of 0.65 for defined channels
+        double slopeFactor = 0.65 + Math.min(1.85, slopeMagnitude * 1.5);
+        double rBase = 16.0 * flowStrength * slopeFactor * climateMultiplier;
+        double rMax = maxIncisionDepth * Math.min(1.0, slopeFactor * 0.65);
 
         return Math.clamp(rBase, 0.0, rMax);
-    }
-
-    public double computeChannelWidth(double flowAccumulation) {
-        return 2.0 + 40.0 * (1.0 - Math.exp(-flowAccumulation * 0.15));
     }
 }

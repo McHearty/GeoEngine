@@ -18,10 +18,11 @@ public final class GeoSample {
 
     public double erosionLowering;
     public double surfaceH0;
-    public double flowAccumulation; // Flow accumulation scalar
+    public double flowAccumulation;
     public double riverIncision;
     public double deposition;
     public double finalSurface;
+    public int waterSurfaceLevel; // Local river water level (§149)
 
     public double gradX;
     public double gradZ;

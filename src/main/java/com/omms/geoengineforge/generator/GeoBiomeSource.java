@@ -41,7 +41,11 @@ public final class GeoBiomeSource extends BiomeSource {
     private final Climate.ParameterList<Holder<Biome>> overworldParameters;
     private final Climate.ParameterList<Holder<Biome>> netherParameters;
 
-    // The End Biomes
+    // Overworld Biome Holders
+    private final Holder<Biome> river;
+    private final Holder<Biome> frozenRiver;
+
+    // The End Biome Holders
     private final Holder<Biome> theEnd;
     private final Holder<Biome> endHighlands;
     private final Holder<Biome> endMidlands;
@@ -61,19 +65,23 @@ public final class GeoBiomeSource extends BiomeSource {
         this.climateClassifier = new ClimateClassifier(config);
         reseed(worldSeed);
 
-        // Vanilla Overworld biomes (Plains, Forests, Oceans, Peaks, Caves)
+        // Vanilla Overworld multi-noise parameter list (includes all ~55 biomes, oceans, caves)
         MultiNoiseBiomeSourceParameterList overworldList = new MultiNoiseBiomeSourceParameterList(
             MultiNoiseBiomeSourceParameterList.Preset.OVERWORLD, biomes
         );
         this.overworldParameters = overworldList.parameters();
 
-        // Vanilla Nether biomes (Crimson, Warped, Soul Sand, Basalt Deltas, Wastes)
+        // Vanilla Nether multi-noise parameter list
         MultiNoiseBiomeSourceParameterList netherList = new MultiNoiseBiomeSourceParameterList(
             MultiNoiseBiomeSourceParameterList.Preset.NETHER, biomes
         );
         this.netherParameters = netherList.parameters();
 
-        // End Biomes
+        // River Biomes
+        this.river = biomes.getOrThrow(Biomes.RIVER);
+        this.frozenRiver = biomes.getOrThrow(Biomes.FROZEN_RIVER);
+
+        // The End Biomes
         this.theEnd = biomes.getOrThrow(Biomes.THE_END);
         this.endHighlands = biomes.getOrThrow(Biomes.END_HIGHLANDS);
         this.endMidlands = biomes.getOrThrow(Biomes.END_MIDLANDS);
@@ -99,7 +107,10 @@ public final class GeoBiomeSource extends BiomeSource {
         if (dimensionId == 2) {
             return Stream.of(theEnd, endHighlands, endMidlands, smallEndIslands, endBarrens);
         }
-        return overworldParameters.values().stream().map(Pair::getSecond);
+        return Stream.concat(
+            overworldParameters.values().stream().map(Pair::getSecond),
+            Stream.of(river, frozenRiver)
+        );
     }
 
     @Override
@@ -111,7 +122,7 @@ public final class GeoBiomeSource extends BiomeSource {
         WorkerScratchpad sp = ScratchpadProvider.get();
         kernel.evaluateFullColumn(worldX, worldZ, sp.sample);
 
-        // --- The End (dimensionId == 2) ---
+        // 1. The End
         if (dimensionId == 2) {
             int chunkX = quartX >> 2;
             int chunkZ = quartZ >> 2;
@@ -128,12 +139,11 @@ public final class GeoBiomeSource extends BiomeSource {
             return smallEndIslands;
         }
 
-        // --- The Nether (dimensionId == 1) ---
+        // 2. The Nether
         if (dimensionId == 1) {
             float temperature = (float) Math.clamp((sp.sample.temperature * 2.0) - 1.0, -1.0, 1.0);
             float humidity = (float) Math.clamp((sp.sample.humidity * 2.0) - 1.0, -1.0, 1.0);
 
-            // Sits strictly on the T-H plane (C=0, E=0, D=0, W=0, offset=0)
             Climate.TargetPoint netherTarget = new Climate.TargetPoint(
                 Climate.quantizeCoord(temperature),
                 Climate.quantizeCoord(humidity),
@@ -142,7 +152,14 @@ public final class GeoBiomeSource extends BiomeSource {
             return netherParameters.findValue(netherTarget);
         }
 
-        // --- The Overworld (dimensionId == 0) ---
+        // 3. The Overworld:
+        // When on an incised river channel, directly assign the River biome
+        if (sp.sample.riverIncision > 2.5 && sp.sample.finalSurface >= config.seaLevel() - 4.0) {
+            double effTemp = climateClassifier.getEffectiveTemperature(sp.sample.temperature, worldY);
+            return (effTemp < 0.15) ? frozenRiver : river;
+        }
+
+        // Standard multi-noise evaluation (natural oceans, coasts, plains, mountains, caves)
         Climate.TargetPoint overworldTarget = convertToOverworldClimate(sp.sample, worldY);
         return overworldParameters.findValue(overworldTarget);
     }
@@ -198,21 +215,13 @@ public final class GeoBiomeSource extends BiomeSource {
         }
     }
 
-    /**
-     * Calibrated Erosion mapping:
-     * - Lowland plains (Hf <= 95m, slope < 0.25) -> High erosion (+0.25 ~ +0.55, Plains/Forests)
-     * - Foothills & mid-relief (Hf 95-180m) -> Moderate erosion (-0.20 ~ +0.10, Hills/Meadows)
-     * - High mountain peaks (Hf > 220m, steep slopes) -> Low erosion (-0.85 ~ -0.40, Jagged Peaks/Snowy Slopes)
-     */
     private float computeErosion(double hf, double slope, double incision) {
         double seaLevel = config.seaLevel();
         double heightAboveSea = Math.max(0.0, hf - seaLevel);
 
-        // Elevation factor: 0.0 at sea level -> 1.0 at Y=350+
         double elevationFactor = Math.clamp(heightAboveSea / 280.0, 0.0, 1.0);
         double slopeFactor = Math.clamp(slope / 0.85, 0.0, 1.0);
 
-        // Lowlands are heavily eroded (+0.40); alpine peaks are jagged (-0.80)
         float baseErosion = (float) (0.45 - (1.25 * Math.pow(Math.max(elevationFactor, slopeFactor), 0.75)));
 
         if (incision > 4.0) {
