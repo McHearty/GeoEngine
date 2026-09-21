@@ -12,23 +12,47 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Phase-4 raster pipeline harness (TECHSPEC §210, §211, §212,
+ * §216): full chunk lifecycle with decoupled pipeline delegation,
+ * section budget, and heightmap validation.
+ */
 public class Phase4RasterPipelineTest {
+    /** Default Overworld configuration. */
     private GeoConfig config;
+    /** Scalar field kernel. */
     private ScalarFieldKernel kernel;
+    /** Section classifier. */
     private SectionClassifier classifier;
 
+    /**
+     * Fake ChunkAccess stand-in: records per-section
+     * classifications, bulk fills, band voxel evaluations, and both
+     * WG heightmaps.
+     */
     public static final class SimulatedChunkColumn {
+        /** 128 sections span the 2048-block column. */
         public static final int TOTAL_SECTIONS = 128;
+        /** Per-section classification. */
         public final SectionClassification[] classifications = new SectionClassification[TOTAL_SECTIONS];
+        /** Bulk SOLID fills. */
         public int bulkSolidCount = 0;
+        /** Bulk AIR fills. */
         public int bulkAirCount = 0;
+        /** Sections rasterized voxel-by-voxel. */
         public int bandVoxelEvaluatedSections = 0;
+        /** Density evaluations performed in BAND sections. */
         public long totalVoxelEvaluations = 0;
 
+        /** WORLD_SURFACE_WG stand-in. */
         public final int[] worldSurfaceHeightmap = new int[256];
+        /** OCEAN_FLOOR_WG stand-in. */
         public final int[] oceanFloorHeightmap = new int[256];
     }
 
+    /**
+     * Installs the shared test fixtures.
+     */
     @BeforeEach
     void setUp() {
         config = GeoConfig.defaultOverworld(1);
@@ -36,6 +60,12 @@ public class Phase4RasterPipelineTest {
         classifier = new SectionClassifier(config, kernel.getCaveField());
     }
 
+    /**
+     * Full lifecycle: 2-D raster → both heightmaps → 128-section
+     * classification → budget checks (≥1 SOLID, ≥60 AIR, BAND
+     * evaluations under 20%) → heightmap validation (TECHSPEC
+     * §210, §211, §212, §216).
+     */
     @Test
     @DisplayName("Phase-4 Harness: Full chunk rasterization lifecycle with decoupled pipeline delegation")
     void testSimulatedChunkLifecycle() {

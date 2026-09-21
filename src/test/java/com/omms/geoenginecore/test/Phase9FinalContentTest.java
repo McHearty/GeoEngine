@@ -14,13 +14,26 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Phase-9 final content (TECHSPEC §190, §195-§199, §200, §204,
+ * §208, §209): structure gating, dipping strata continuity, and
+ * deterministic feature triggers.
+ */
 public class Phase9FinalContentTest {
+    /** Fixed test world seed. */
     private static final long TEST_SEED = 0x8888444422221111L;
+    /** Default Overworld configuration. */
     private GeoConfig config;
+    /** Structure suitability scorer. */
     private StructureSuitabilityField suitabilityField;
+    /** Deterministic lithology field. */
     private LithologyField lithologyField;
+    /** Special feature detector. */
     private SpecialFeatureDetector featureDetector;
 
+    /**
+     * Installs the shared test fixtures.
+     */
     @BeforeEach
     void setUp() {
         config = GeoConfig.defaultOverworld(1);
@@ -29,6 +42,10 @@ public class Phase9FinalContentTest {
         featureDetector = new SpecialFeatureDetector(config);
     }
 
+    /**
+     * Flat, dry plains accept a village; a large cave void or a
+     * sheer slope reject it (TECHSPEC §208, §209).
+     */
     @Test
     @DisplayName("Structure Placement Gating: Village rejected on sheer cliffs or shallow voids")
     void testStructureFoundationGating() {
@@ -55,6 +72,10 @@ public class Phase9FinalContentTest {
         assertTrue(report.isCliffEdge);
     }
 
+    /**
+     * Dipping strata stay continuous across the X=15/16 chunk
+     * boundary without shearing (TECHSPEC §199).
+     */
     @Test
     @DisplayName("Dipping Strata: Continuous horizons across chunk boundary without shearing")
     void testDippingStrataSeamContinuity() {
@@ -72,6 +93,10 @@ public class Phase9FinalContentTest {
         assertFalse(rockA == RockFamily.DEEP_DEEPSLATE && rockB == RockFamily.SEDIMENTARY_LIMESTONE);
     }
 
+    /**
+     * A 4-block waterfall lip (incision 4.2, slope 0.72) triggers
+     * WATERFALL_CREST (TECHSPEC §200).
+     */
     @Test
     @DisplayName("Deterministic Feature Trigger: Waterfall Lip Detection")
     void testWaterfallDetection() {
@@ -84,6 +109,10 @@ public class Phase9FinalContentTest {
         assertEquals(SpecialFeatureDetector.FeatureType.WATERFALL_CREST, type);
     }
 
+    /**
+     * A 290-block tectonic uplift with a hot, dry, weakly eroded
+     * column triggers GEOTHERMAL_VENT (TECHSPEC §201).
+     */
     @Test
     @DisplayName("Deterministic Feature Trigger: Geothermal Magma Vent Detection")
     void testGeothermalVentDetection() {

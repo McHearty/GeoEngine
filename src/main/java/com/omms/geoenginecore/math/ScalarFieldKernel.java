@@ -8,40 +8,94 @@ import com.omms.geoenginecore.geomorphology.LandformClassifier;
 import com.omms.geoenginecore.hydrology.*;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 
+/**
+ * Scalar reference terrain kernel and the numerical authority of the
+ * engine (TECHSPEC §68).
+ *
+ * <p>Implements the full deterministic pipeline: crustal baseline
+ * (tectonics, stress warp, epoch, climate, erosion), volumetric and
+ * hydrology fields, advanced geomorphic process modifiers, and
+ * landform classification. All fields are constructed eagerly in the
+ * constructor so the evaluation hot path performs no construction and
+ * no allocation (TECHSPEC §62). Every result is a pure function of the
+ * deterministic key (TECHSPEC §8).
+ *
+ * <p>Optimized kernels such as {@code VectorFieldKernel} must
+ * reproduce this kernel's values within the established tolerance
+ * (TECHSPEC §71).
+ */
 public final class ScalarFieldKernel implements FieldKernel {
+    /** World seed that roots every deterministic seed domain (TECHSPEC §9). */
     private final long worldSeed;
+    /** Validated configuration captured from the dimension profile. */
     private final GeoConfig config;
+    /** Dimension profile controlling vertical layout and active process families. */
     private final DimensionProfile profile;
 
     // Crustal Baseline
+    /** Anisotropic coordinate warp that deforms the tectonic domain (TECHSPEC §16). */
     private final StressWarp stressWarp;
+    /** Macro-tectonic relief field T built from three frequency bands (TECHSPEC §13-§15). */
     private final TectonicField tectonicField;
+    /** Geological age field scaling process strength (TECHSPEC §17). */
     private final EpochField epochField;
+    /** Horizontal temperature/humidity field and bounded climate multiplier (TECHSPEC §19-§20). */
     private final ClimateField climateField;
+    /** Long-term surface lowering E (TECHSPEC §22). */
     private final ErosionField erosionField;
 
     // Volumetric & Hydrology
+    /** Bounded fluvial incision R (TECHSPEC §28). */
     private final RiverField riverField;
+    /** Volumetric 3-D rock warp W (TECHSPEC §41-§44). */
     private final WarpField warpField;
+    /** Volumetric cave void field C (TECHSPEC §45-§48). */
     private final CaveField caveField;
+    /** Coarse deterministic drainage router behind the flow accumulation proxy (TECHSPEC §26-§27). */
     private final DrainageRouter drainageRouter;
 
     // Advanced Geomorphic Process Modifiers
+    /** Cryogenic modifier: U-valley floors and cirque bowls (TECHSPEC §118-§119). */
     private final GlacialField glacialField;
+    /** Aeolian modifier: dune relief (TECHSPEC §110-§112). */
     private final AeolianField aeolianField;
+    /** Karst modifier: sinkholes and tower karst (TECHSPEC §125). */
     private final KarstField karstField;
+    /** Coastal modifier: wave-cut platforms and sea arches (TECHSPEC §122-§124). */
     private final CoastalField coastalField;
+    /** Fluvial deposition modifier: alluvial fans and delta lobes (TECHSPEC §116-§117). */
     private final AlluvialDeltaField deltaField;
+    /** Volcanic modifier: cones, calderas, and lava fields (TECHSPEC §109). */
     private final VolcanicCalderaField volcanicField;
+    /** Voronoi fracture field providing regional offsets and cell relief (TECHSPEC §90-§91). */
     private final VoronoiFractureField fractureField;
 
     // Morphological Classifier
+    /** Grammar-based landform classification (TECHSPEC §92-§107). */
     private final LandformClassifier landformClassifier;
 
+    /**
+     * Constructs a kernel with the given configuration, assuming the
+     * Overworld dimension profile.
+     *
+     * @param worldSeed world seed that roots every seed domain
+     * @param config validated configuration
+     */
     public ScalarFieldKernel(long worldSeed, GeoConfig config) {
         this(worldSeed, new OverworldProfile(config));
     }
 
+    /**
+     * Constructs the kernel for an arbitrary dimension.
+     *
+     * <p>The profile supplies both the {@link GeoConfig} and the set of
+     * active process families. All fields are built eagerly so that
+     * the evaluation hot path performs no construction or allocation
+     * (TECHSPEC §62).
+     *
+     * @param worldSeed world seed that roots every seed domain
+     * @param profile dimension profile defining vertical layout and process availability
+     */
     public ScalarFieldKernel(long worldSeed, DimensionProfile profile) {
         this.worldSeed = worldSeed;
         this.profile = profile;
@@ -68,6 +122,17 @@ public final class ScalarFieldKernel implements FieldKernel {
         this.landformClassifier = new LandformClassifier(config);
     }
 
+    /**
+     * Evaluates the pre-carve surface H₀ = T − E (TECHSPEC §23).
+     *
+     * <p>All factors are queried in the stress-warped domain so that
+     * the tectonic structure, age, climate, and erosion stay mutually
+     * consistent on the deformed coordinate lattice (TECHSPEC §16, §18).
+     *
+     * @param wx world-space X of the column
+     * @param wz world-space Z of the column
+     * @return H₀ elevation of the column after crustal erosion
+     */
     public double evaluatePureH0(double wx, double wz) {
         double sx = stressWarp.getWarpX(wx, wz);
         double sz = stressWarp.getWarpZ(wx, wz);
@@ -85,6 +150,25 @@ public final class ScalarFieldKernel implements FieldKernel {
         return tectonic - erosion;
     }
 
+    /**
+     * Applies the additive pre-fluvial process modifiers to an
+     * elevation (the stage between H₀ and H* in TECHSPEC §24).
+     *
+     * <p>Modifiers are gated by the dimension profile and layered in a
+     * fixed order: Voronoi fracture replacement, glacial valleys and
+     * cirques, karst relief, aeolian dunes, and volcanic relief. Only
+     * the fracture path replaces the input elevation; all other
+     * modifiers offset it. Volcanic relief is applied only above
+     * 180 blocks, where volcanic constructs are plausible.
+     *
+     * @param wx world-space X of the column
+     * @param wz world-space Z of the column
+     * @param h0 baseline elevation to modify
+     * @param temp temperature driving process intensity
+     * @param humid humidity driving process intensity
+     * @param slope local gradient magnitude used by slope-sensitive modifiers
+     * @return modified pre-fluvial surface elevation
+     */
     public double evaluatePreFluvialSurface(double wx, double wz, double h0, double temp, double humid, double slope) {
         double hPre = h0;
 
@@ -117,10 +201,34 @@ public final class ScalarFieldKernel implements FieldKernel {
         return hPre;
     }
 
+    /**
+     * Evaluates the deterministic flow accumulation proxy A_f at a
+     * column (TECHSPEC §27).
+     *
+     * @param wx world-space X of the column
+     * @param wz world-space Z of the column
+     * @return accumulated upstream drainage contribution
+     */
     public double evaluateFullFlowAccumulation(double wx, double wz) {
         return drainageRouter.computeAccumulationProxy(this, worldSeed, config.configHash(), wx, wz);
     }
 
+    /**
+     * Runs the complete 2-D column pipeline (TECHSPEC §24).
+     *
+     * <p>Stages: stress warp → age/climate → tectonic → erosion →
+     * H₀ = T − E → central-difference derivatives on H₀ → pre-fluvial
+     * modifiers H_pre → fluvial incision R → H* = H_pre − R →
+     * deposition S → H_f = H* + S → coastal finishing → 9-point
+     * Hessian curvature stencil → landform classification. The
+     * construction is deliberately single-pass and acyclic; any
+     * future H* feedback must use a bounded iterative solver
+     * (TECHSPEC §24).
+     *
+     * @param wx world-space X of the column
+     * @param wz world-space Z of the column
+     * @param sample reusable sample struct overwritten in full by this pass
+     */
     @Override
     public void evaluateFullColumn(double wx, double wz, GeoSample sample) {
         sample.worldX = wx;
@@ -202,11 +310,34 @@ public final class ScalarFieldKernel implements FieldKernel {
         );
     }
 
+    /**
+     * Convenience wrapper that evaluates a full column and returns only
+     * the final surface elevation.
+     *
+     * @param wx world-space X of the column
+     * @param wz world-space Z of the column
+     * @param sample reusable sample struct overwritten by the evaluation
+     * @return H_f elevation of the column
+     */
     public double evaluateH0(double wx, double wz, GeoSample sample) {
         evaluateFullColumn(wx, wz, sample);
         return sample.finalSurface;
     }
 
+    /**
+     * Fills the 6×6 world-space macro node arrays (TECHSPEC §38-§40).
+     *
+     * <p>Nodes are spaced 4 blocks apart starting 4 blocks before the
+     * chunk origin, so the grid covers the 16×16 chunk plus one halo
+     * ring. Each node stores the interpolated H₀ baseline, the raw
+     * tectonic field, and the age, temperature, humidity, and erosion
+     * factors. The coarse grid cuts macro sample count by roughly 86%
+     * relative to per-column evaluation (TECHSPEC §40).
+     *
+     * @param scratchpad worker-owned scratchpad that receives the macro node values
+     * @param chunkWorldX world-coordinate X of the chunk origin
+     * @param chunkWorldZ world-coordinate Z of the chunk origin
+     */
     @Override
     public void evaluateMacroGrid(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ) {
         final int originX = chunkWorldX - 4;
@@ -242,6 +373,19 @@ public final class ScalarFieldKernel implements FieldKernel {
         }
     }
 
+    /**
+     * Rasterizes the 16×16 chunk surface from the macro grid.
+     *
+     * <p>Evaluates the macro grid, bilinearly interpolates the macro
+     * nodes onto the per-column chunk lattice (one chunk column per
+     * 4 macro blocks), then hands off to
+     * {@link #finishSurfaceProcessing} for the remaining passes.
+     * Interpolation is deterministic and allocation-free (TECHSPEC §39).
+     *
+     * @param scratchpad worker-owned scratchpad that receives all chunk grids
+     * @param chunkWorldX world-coordinate X of the chunk origin
+     * @param chunkWorldZ world-coordinate Z of the chunk origin
+     */
     @Override
     public void rasterizeSurfaceChunk(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ) {
         evaluateMacroGrid(scratchpad, chunkWorldX, chunkWorldZ);
@@ -283,6 +427,23 @@ public final class ScalarFieldKernel implements FieldKernel {
         finishSurfaceProcessing(scratchpad, chunkWorldX, chunkWorldZ);
     }
 
+    /**
+     * Completes the chunk surface pipeline after macro-grid
+     * interpolation.
+     *
+     * <p>Pass 1 applies the pre-fluvial modifiers per column. Pass 2
+     * computes central-difference gradients and the Laplacian, falling
+     * back to direct world-space evaluation for neighbors across chunk
+     * boundaries (TECHSPEC §76). Pass 3 applies fluvial incision,
+     * deposition, and coastal finishing to reach H_f. Pass 4
+     * classifies every column using the 9-point Hessian curvature
+     * stencil, again substituting the column itself when a neighbor is
+     * outside the chunk (TECHSPEC §100).
+     *
+     * @param scratchpad worker-owned scratchpad holding the interpolated grids
+     * @param chunkWorldX world-coordinate X of the chunk origin
+     * @param chunkWorldZ world-coordinate Z of the chunk origin
+     */
     public void finishSurfaceProcessing(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ) {
         // 1. Additive Pre-Fluvial Modifiers
         for (int lz = 0; lz < WorkerScratchpad.CHUNK_DIM; lz++) {
@@ -409,6 +570,18 @@ public final class ScalarFieldKernel implements FieldKernel {
         }
     }
 
+    /**
+     * Bilinearly interpolates the four macro corners of a 4-block cell.
+     *
+     * @param arr macro node array
+     * @param i00 index of the cell's (0, 0) corner
+     * @param i10 index of the cell's (1, 0) corner
+     * @param i01 index of the cell's (0, 1) corner
+     * @param i11 index of the cell's (1, 1) corner
+     * @param fx fractional X offset within the cell, in [0, 1]
+     * @param fz fractional Z offset within the cell, in [0, 1]
+     * @return interpolated value
+     */
     private static double bilerp(double[] arr, int i00, int i10, int i01, int i11, double fx, double fz) {
         return (1.0 - fx) * (1.0 - fz) * arr[i00]
              + fx * (1.0 - fz) * arr[i10]
@@ -416,6 +589,23 @@ public final class ScalarFieldKernel implements FieldKernel {
              + fx * fz * arr[i11];
     }
 
+    /**
+     * Evaluates the canonical terrain density D = H_f − (y + W) − C for
+     * one voxel (TECHSPEC §41, §49).
+     *
+     * <p>Positive return means solid, non-positive means air. The warp
+     * shifts the effective vertical coordinate; the cave field and sea
+     * arch voids subtract additional material. Degenerate NaN/Infinity
+     * results are resolved by the sea-level rule. With W = 0 and C = 0
+     * the result reduces to H_f − y, preserving the density
+     * monotonicity invariant ∂D/∂y = −1 (TECHSPEC §50).
+     *
+     * @param scratchpad worker-owned scratchpad holding the chunk surface grid
+     * @param worldX absolute world X of the voxel
+     * @param worldY absolute world Y of the voxel
+     * @param worldZ absolute world Z of the voxel
+     * @return terrain density for the voxel
+     */
     @Override
     public float evaluateDensity(WorkerScratchpad scratchpad, int worldX, int worldY, int worldZ) {
         int lx = worldX & 15;
@@ -455,8 +645,23 @@ public final class ScalarFieldKernel implements FieldKernel {
         return (float) d;
     }
 
+    /**
+     * @return the volumetric cave field owned by this kernel
+     */
     @Override public CaveField getCaveField() { return caveField; }
+
+    /**
+     * @return the volumetric rock warp owned by this kernel
+     */
     @Override public WarpField getWarpField() { return warpField; }
+
+    /**
+     * @return the landform classifier owned by this kernel
+     */
     @Override public LandformClassifier getLandformClassifier() { return landformClassifier; }
+
+    /**
+     * @return the dimension profile this kernel was constructed with
+     */
     public DimensionProfile getProfile() { return profile; }
 }

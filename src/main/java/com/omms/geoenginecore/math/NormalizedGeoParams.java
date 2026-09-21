@@ -1,5 +1,13 @@
 package com.omms.geoenginecore.math;
 
+/**
+ * User-facing 0..1 slider parameters of the GeoEngine configuration.
+ *
+ * <p>Each component is a dimensionless control in [0.0, 1.0] mapped by
+ * {@link GeoConfigNormalizer} onto concrete engine values. The compact
+ * constructor clamps every component, so a live instance is always
+ * valid.
+ */
 public record NormalizedGeoParams(
     double continentalScale,       // [0.0, 1.0]: Continental plate & ocean size
     double mountainScale,          // [0.0, 1.0]: Wavelength of mountain belts
@@ -12,6 +20,11 @@ public record NormalizedGeoParams(
     double riverIncisionRate,      // [0.0, 1.0]: Drainage accumulation carve rate
     double cliffOverhangIntensity  // [0.0, 1.0]: 3D volumetric rock warp
 ) {
+    /**
+     * Clamps every component into [0.0, 1.0].
+     *
+     * @throws NullPointerException if any component is a boxed null
+     */
     public NormalizedGeoParams {
         continentalScale = Math.clamp(continentalScale, 0.0, 1.0);
         mountainScale = Math.clamp(mountainScale, 0.0, 1.0);
@@ -27,6 +40,8 @@ public record NormalizedGeoParams(
 
     /**
      * Balanced defaults matching the calibrated Overworld baseline.
+     *
+     * @return parameter set tuned for the reference Overworld terrain
      */
     public static NormalizedGeoParams defaultOverworld() {
         return new NormalizedGeoParams(

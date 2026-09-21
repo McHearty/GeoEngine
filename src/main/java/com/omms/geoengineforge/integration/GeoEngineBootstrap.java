@@ -5,9 +5,24 @@ import com.omms.geoenginecore.simd.KernelProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Startup self-check (TECHSPEC §214-§216).
+ *
+ * <p>Verifies that the baseline config survives {@link
+ * GeoConfig#validate()} and reports whether hardware SIMD is active
+ * or the scalar reference authority is in use, so the environment is
+ * known before any chunk is generated.
+ */
 public final class GeoEngineBootstrap {
+    /** Bootstrap logger. */
     private static final Logger LOGGER = LoggerFactory.getLogger("GeoEngine-Bootstrap");
 
+    /**
+     * Fails fast on an invalid baseline config and reports the active
+     * field kernel flavor (TECHSPEC §216).
+     *
+     * @throws RuntimeException if the baseline config is invalid
+     */
     public static void validateEnvironment() {
         LOGGER.info("[GeoEngine] Performing geomorphic environment verification...");
 

@@ -5,22 +5,47 @@ import com.omms.geoenginecore.geomorphology.LandformType;
 import com.omms.geoenginecore.math.GeoConfig;
 import com.omms.geoenginecore.math.GeoSample;
 
+/**
+ * Pure geomorphic detector for non-scalar special features
+ * (TECHSPEC §201-§203).
+ *
+ * <p>Detection uses only the pipeline sample and the downstream
+ * slope drop: waterfall crests (deep incision plunging over a steep
+ * scarp), mountain springs (headwater aquifer discharge at alpine
+ * slope breaks), and geothermal vents (hot, dry, high-tectonic
+ * plates on gentle, strongly eroded ground). The result never
+ * depends on block identity, chunk layout, or threading.
+ */
 public final class SpecialFeatureDetector {
+    /** Special feature taxonomy. */
     public enum FeatureType {
+        /** No feature detected. */
         NONE,
+        /** Waterfall crest: river plunging over a steep scarp (TECHSPEC §201). */
         WATERFALL_CREST,
+        /** Mountain spring: headwater aquifer discharge (TECHSPEC §202). */
         MOUNTAIN_SPRING,
+        /** Geothermal vent: high tectonic thermal plate (TECHSPEC §203). */
         GEOTHERMAL_VENT
     }
 
+    /** Coastline reference: the dimension's sea level. */
     private final int seaLevel;
 
+    /**
+     * @param config validated configuration supplying the sea level
+     */
     public SpecialFeatureDetector(GeoConfig config) {
         this.seaLevel = config.seaLevel();
     }
 
     /**
-     * Pure geomorphic detection of non-scalar hydrological and geothermal features (§201–§203).
+     * Pure geomorphic detection of non-scalar hydrological and
+     * geothermal features (TECHSPEC §201-§203).
+     *
+     * @param sample pipeline sample of the column
+     * @param downstreamSlopeDrop elevation drop along the flow direction over the feature reach
+     * @return the detected feature, or {@link FeatureType#NONE}
      */
     public FeatureType detectFeature(GeoSample sample, double downstreamSlopeDrop) {
         // 1. Waterfall Crest: River incision plunging over steep cliff scarp (§201)

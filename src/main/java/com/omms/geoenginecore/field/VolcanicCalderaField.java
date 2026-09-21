@@ -4,16 +4,45 @@ import com.omms.geoenginecore.noise.GeoNoise;
 import com.omms.geoenginecore.noise.NoiseDomain;
 import com.omms.geoenginecore.noise.SeedDerivation;
 
+/**
+ * Sparse caldera field (TECHSPEC §109).
+ *
+ * <p>Calderas are placed sparsely on a 480-block cell lattice; about
+ * 15% of cells receive a center, jittered within the cell by a
+ * deterministic hash. Each caldera has a noise-warped perimeter, a
+ * central depression, a raised rim, and a short outer falloff, so the
+ * feature reads as a collapsed volcanic construct.
+ */
 public final class VolcanicCalderaField {
+    /** Domain seed for caldera center placement. */
     private final long seed;
+    /** Perimeter warp noise stream. */
     private final GeoNoise shapeNoise;
-    private static final double CELL_SIZE = 480.0; // Sparse volcanic spacing
+    /** Placement lattice spacing in blocks (sparse volcanic spacing). */
+    private static final double CELL_SIZE = 480.0;
 
+    /**
+     * @param worldSeed world seed that roots every seed domain
+     * @param version generator version
+     */
     public VolcanicCalderaField(long worldSeed, int version) {
         this.seed = SeedDerivation.derive(worldSeed, 1, NoiseDomain.TECTONIC_DETAIL_A.getSalt(), version);
         this.shapeNoise = new GeoNoise(seed);
     }
 
+    /**
+     * Evaluates the caldera relief at (x, z).
+     *
+     * <p>Cells without a center contribute zero (sparse gating).
+     * Inside a caldera: the inner 32% is a bowl-shaped depression up
+     * to 42 blocks deep, the annulus out to 88% is a rim up to 58
+     * blocks high with a sine profile, and the outer 12% fades over
+     * 16 blocks.
+     *
+     * @param x world-space X
+     * @param z world-space Z
+     * @return caldera relief contribution in blocks
+     */
     public double evaluateVolcanicRelief(double x, double z) {
         long cx = (long) Math.floor(x / CELL_SIZE);
         long cz = (long) Math.floor(z / CELL_SIZE);

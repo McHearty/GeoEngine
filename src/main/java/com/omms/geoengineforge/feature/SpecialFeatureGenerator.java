@@ -7,15 +7,33 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 
+/**
+ * Special feature materialization (TECHSPEC §200-§203).
+ *
+ * <p>Injects deterministic feature blocks (waterfall water, spring
+ * water, geothermal magma) into the generated chunk. Placement uses
+ * verified world coordinates and checks local support so features
+ * never float or clip terrain.
+ */
 public final class SpecialFeatureGenerator {
+    /** Source water block used by waterfall crests and springs. */
     private static final BlockState WATER_SOURCE = Blocks.WATER.defaultBlockState();
+    /** Magma block used by geothermal vents. */
     private static final BlockState MAGMA_BLOCK = Blocks.MAGMA_BLOCK.defaultBlockState();
 
+    /** Hides the implicit constructor. This is a static utility class. */
     private SpecialFeatureGenerator() {}
 
     /**
-     * Injects deterministic special feature blocks directly into the generated chunk.
-     * Uses verified world coordinates and checks local support to prevent floating artifacts.
+     * Places the detected feature's blocks, verifying local support
+     * first (TECHSPEC §204).
+     *
+     * @param chunk chunk being generated
+     * @param pos reusable mutable position
+     * @param feature detected feature type
+     * @param sample pipeline sample of the column
+     * @param wx world X of the column
+     * @param wz world Z of the column
      */
     public static void materializeFeature(
         ChunkAccess chunk, BlockPos.MutableBlockPos pos, 

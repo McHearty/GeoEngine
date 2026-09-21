@@ -14,12 +14,24 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Phase-8 performance invariants (TECHSPEC §164, §166, §170):
+ * zero steady-state allocation, scalar/SIMD numerical parity, and
+ * macro cache idempotency/eviction.
+ */
 public class Phase8PerformanceTest {
+    /** Fixed test world seed. */
     private static final long TEST_SEED = 0xFEEDBEEF9999AAAAL;
+    /** Default Overworld configuration. */
     private GeoConfig config;
+    /** Overworld dimension profile. */
     private OverworldProfile profile;
+    /** Scalar reference kernel. */
     private ScalarFieldKernel scalarKernel;
 
+    /**
+     * Installs the shared test fixtures.
+     */
     @BeforeEach
     void setUp() {
         config = GeoConfig.defaultOverworld(1);
@@ -27,6 +39,10 @@ public class Phase8PerformanceTest {
         scalarKernel = new ScalarFieldKernel(TEST_SEED, profile);
     }
 
+    /**
+     * After 50 warmup chunks, 1000 steady-state chunks plus density
+     * queries must allocate 0 bytes (TECHSPEC §164).
+     */
     @Test
     @DisplayName("Invariant §62: True Zero Steady-State Heap Allocation at Source Level")
     void testZeroSteadyStateAllocation() {
@@ -55,6 +71,11 @@ public class Phase8PerformanceTest {
         assertEquals(0L, allocatedBytes);
     }
 
+    /**
+     * Scalar vs SIMD surface grids and density columns agree within
+     * |Hs - Hv| ≤ 1e-5 (TECHSPEC §166, §170); skipped when the
+     * incubator Vector API is unavailable.
+     */
     @Test
     @DisplayName("Invariant §71: Scalar vs Vector Numerical Parity Under Unified Process Stack (|Hs - Hv| <= 1e-5)")
     void testScalarVectorNumericalParity() {
@@ -91,6 +112,11 @@ public class Phase8PerformanceTest {
         }
     }
 
+    /**
+     * A cached macro grid reproduces the cold raster bit-exactly
+     * (0.0 tolerance), and the LRU evicts the oldest entry when
+     * the 32-entry pool overflows (TECHSPEC §165, §170).
+     */
     @Test
     @DisplayName("Invariant §77 & §160: Macro Cache Bitwise Idempotency and Eviction")
     void testMacroCacheIdempotency() {

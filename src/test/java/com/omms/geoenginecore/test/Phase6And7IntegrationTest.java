@@ -12,9 +12,20 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Phase-6 dimension reconfiguration (TECHSPEC §210): Overworld
+ * process terms are live in the pipeline; the Nether disables
+ * fluvial and enables volcanic; the End disables fluvial and
+ * anchors monoliths (no floating slabs).
+ */
 public class Phase6And7IntegrationTest {
+    /** Fixed test world seed. */
     private static final long TEST_SEED = 0xABCD1234EF567890L;
 
+    /**
+     * Overworld H_f is finite and above the world floor with all
+     * process terms active.
+     */
     @Test
     @DisplayName("Phase 7 Verification: Additive Process Terms active in Overworld Pipeline")
     void testOverworldAdditiveProcessTerms() {
@@ -34,6 +45,11 @@ public class Phase6And7IntegrationTest {
         }
     }
 
+    /**
+     * Nether: no fluvial hydrology, volcanic processes active,
+     * fluid level 32, and air (D &lt; 0) above the Nether surface
+     * (TECHSPEC §210).
+     */
     @Test
     @DisplayName("Phase 6 Verification: Nether profile reconfigures field stack (Zero Fluvial, Active Lava)")
     void testNetherStackReconfiguration() {
@@ -49,6 +65,11 @@ public class Phase6And7IntegrationTest {
         assertTrue(highAltitudeDensity < 0.0f);
     }
 
+    /**
+     * End: Voronoi fracture active, no fluvial; the monolith is
+     * solid at mid-depth (D &gt; 0) and void in the abyss (D &lt; 0)
+     * — no floating slabs (TECHSPEC §210).
+     */
     @Test
     @DisplayName("Phase 6 Verification: End profile enforces Voronoi monoliths and eliminates floating slabs")
     void testEndMonolithicAnchorVerification() {

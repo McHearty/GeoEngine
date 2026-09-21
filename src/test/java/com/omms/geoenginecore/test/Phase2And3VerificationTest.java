@@ -11,16 +11,31 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Phase-2/3 acceptance (TECHSPEC §108, §130, §136, §139, §147):
+ * deposition budget, chunk-boundary flow continuity, full-column
+ * sample population, cave sign convention, and conservative
+ * classification.
+ */
 public class Phase2And3VerificationTest {
+    /** Default Overworld configuration. */
     private GeoConfig config;
+    /** Scalar field kernel. */
     private ScalarFieldKernel kernel;
 
+    /**
+     * Installs the shared test fixtures.
+     */
     @BeforeEach
     void setUp() {
         config = GeoConfig.defaultOverworld(1);
         kernel = new ScalarFieldKernel(0xCAFEBABEDEADBEEFL, config);
     }
 
+    /**
+     * 0 ≤ S ≤ E_total everywhere in a real pipeline raster
+     * (TECHSPEC §108).
+     */
     @Test
     @DisplayName("Phase-2 Acceptance: Deposition strictly within budget (0 <= S <= E_total)")
     void testRealPipelineDepositionBudget() {
@@ -38,6 +53,10 @@ public class Phase2And3VerificationTest {
         }
     }
 
+    /**
+     * Accumulation and incision stay close across the X chunk
+     * boundary (TECHSPEC §136): |ΔA_f| &lt; 1.5, |ΔR| &lt; 4.0.
+     */
     @Test
     @DisplayName("Phase-2 Acceptance: Continuous River Accumulation Across Chunk Boundary")
     void testRiverContinuityAcrossChunkBoundary() {
@@ -60,6 +79,10 @@ public class Phase2And3VerificationTest {
         }
     }
 
+    /**
+     * {@code evaluateFullColumn} fills a reusable sample with
+     * finite, bounded values for biome/structure queries.
+     */
     @Test
     @DisplayName("Phase-2 Acceptance: evaluateFullColumn populates sample for biome/structure queries")
     void testEvaluateFullColumnPopulatesSample() {
@@ -73,6 +96,10 @@ public class Phase2And3VerificationTest {
         assertTrue(sample.humidity >= 0.0 && sample.humidity <= 1.0);
     }
 
+    /**
+     * Sampled densities are never NaN; C ≥ 0 keeps D &gt; 0 solid in
+     * cave regions (TECHSPEC §139).
+     */
     @Test
     @DisplayName("Invariant: Cave void density must remain strictly non-negative (C >= 0)")
     void testCaveSignConvention() {
@@ -85,6 +112,10 @@ public class Phase2And3VerificationTest {
         }
     }
 
+    /**
+     * Sections far above the world surface classify AIR, never a
+     * false BAND/SOLID (TECHSPEC §147).
+     */
     @Test
     @DisplayName("Conservative Section Classifier: No False AIR above terrain bounds")
     void testSectionClassifierSafety() {

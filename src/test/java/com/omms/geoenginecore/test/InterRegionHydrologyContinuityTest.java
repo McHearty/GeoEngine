@@ -9,12 +9,25 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Region seam continuity for the authoritative 24×24 D8
+ * DrainageGraph (TECHSPEC §135, §136): flow accumulation must
+ * transition smoothly across 256-block region boundaries, with the
+ * overlapping halo providing C0 continuity.
+ */
 public class InterRegionHydrologyContinuityTest {
+    /** Fixed test world seed. */
     private static final long TEST_SEED = 0x9876543210FEDCBAL;
+    /** Default Overworld configuration. */
     private GeoConfig config;
+    /** Scalar field kernel. */
     private ScalarFieldKernel kernel;
+    /** Drainage router. */
     private DrainageRouter router;
 
+    /**
+     * Installs the shared test fixtures.
+     */
     @BeforeEach
     void setUp() {
         config = GeoConfig.defaultOverworld(1);
@@ -22,6 +35,10 @@ public class InterRegionHydrologyContinuityTest {
         router = new DrainageRouter();
     }
 
+    /**
+     * Flow accumulation just west (X=255) and east (X=256) of the
+     * region seam must stay within a smooth transition tolerance.
+     */
     @Test
     @DisplayName("Authoritative D8 Drainage Graph: Seamless flow accumulation across 256-block region boundary")
     void testInterRegionBoundaryContinuity() {

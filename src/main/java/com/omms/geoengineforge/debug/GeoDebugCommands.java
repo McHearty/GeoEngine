@@ -19,9 +19,22 @@ import net.minecraft.world.level.chunk.ChunkGenerator;
 import java.io.File;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * /geoengine server commands (TECHSPEC §152-§157).
+ *
+ * <p>OP-level 2 commands for in-world debugging: /geoengine info,
+ * /geoengine query [pos], and the heightmap/fields/slice exporters.
+ * Exports run on the background executor to avoid freezing the tick.
+ */
 public final class GeoDebugCommands {
+    /** Hides the implicit constructor. This is a static command registry. */
     private GeoDebugCommands() {}
 
+    /**
+     * Registers all /geoengine commands.
+     *
+     * @param dispatcher command dispatcher
+     */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("geoengine")
             .requires(source -> source.hasPermission(2)) // OP Level 2
@@ -82,6 +95,14 @@ public final class GeoDebugCommands {
         );
     }
 
+    /**
+     * /geoengine query [pos] (TECHSPEC §152): prints the complete
+     * pipeline diagnostic for one column.
+     *
+     * @param source command source
+     * @param pos target position (player position when omitted)
+     * @return brigadier command result
+     */
     private static int executeQuery(CommandSourceStack source, BlockPos pos) {
         ServerLevel level = source.getLevel();
         ChunkGenerator gen = level.getChunkSource().getGenerator();
@@ -99,6 +120,16 @@ public final class GeoDebugCommands {
         return 1;
     }
 
+    /**
+     * /geoengine export ... (TECHSPEC §153-§157): runs the requested
+     * export asynchronously on the background executor.
+     *
+     * @param source command source
+     * @param type export kind: "heightmap", "fields", or "slice"
+     * @param radius export radius in chunks
+     * @param name output base name
+     * @return brigadier command result
+     */
     private static int executeExport(CommandSourceStack source, String type, int radius, String name) {
         ServerLevel level = source.getLevel();
         ChunkGenerator gen = level.getChunkSource().getGenerator();

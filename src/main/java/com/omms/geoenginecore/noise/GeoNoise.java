@@ -1,15 +1,42 @@
 package com.omms.geoenginecore.noise;
 
+/**
+ * 2-D gradient (Perlin-style) noise over a hexagonal lattice.
+ *
+ * <p>Lattice corners are mapped to gradient selectors through
+ * {@link SeedDerivation#hashCoords}, so the noise is a pure function
+ * of the domain seed and coordinate (TECHSPEC §8, §9). The 45.0 scale
+ * is the engine's field amplitude normalization; consuming fields
+ * renormalize the result to their own physical range.
+ */
 public final class GeoNoise {
+    /** Domain seed this noise stream was derived from (TECHSPEC §9). */
     private final long seed;
 
+    /**
+     * @param seed domain seed this noise stream was derived from
+     */
     public GeoNoise(long seed) {
         this.seed = seed;
     }
 
+    /** Hexagonal lattice skew factor: 0.5·(√3 − 1). */
     private static final double F2 = 0.5 * (Math.sqrt(3.0) - 1.0);
+    /** Hexagonal lattice unskew factor: (3 − √3) / 6. */
     private static final double G2 = (3.0 - Math.sqrt(3.0)) / 6.0;
 
+    /**
+     * Samples the 2-D gradient noise at (x, z).
+     *
+     * <p>The input point is mapped onto the hexagonal lattice and the
+     * three contributing corners are dotted against deterministic
+     * gradient selectors. All lattice hashes derive from the domain
+     * seed, keeping the field reproducible across runs and platforms.
+     *
+     * @param x sample coordinate X in the domain's units
+     * @param z sample coordinate Z in the domain's units
+     * @return scaled noise value
+     */
     public double sample2D(double x, double z) {
         double s = (x + z) * F2;
         int i = fastFloor(x + s);
@@ -46,6 +73,14 @@ public final class GeoNoise {
         return 45.0 * (n0 + n1 + n2);
     }
 
+    /**
+     * Evaluates the Perlin kernel t⁴·g at one lattice corner.
+     *
+     * @param hash pseudo-random gradient selector from the domain hash
+     * @param x local offset X from the corner, in [0, 1]
+     * @param z local offset Z from the corner, in [0, 1]
+     * @return kernel contribution, zero outside the support radius
+     */
     private static double grad(long hash, double x, double z) {
         double t = 0.5 - x * x - z * z;
         if (t < 0.0) return 0.0;
@@ -57,6 +92,13 @@ public final class GeoNoise {
         return t * t * g;
     }
 
+    /**
+     * Fast floor for values whose integer part fits an
+     * {@code int}, including negative fractional inputs.
+     *
+     * @param x value to floor
+     * @return largest integer ≤ x
+     */
     private static int fastFloor(double x) {
         int xi = (int) x;
         return x < xi ? xi - 1 : xi;

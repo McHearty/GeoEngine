@@ -8,8 +8,18 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Normalized config sweep (TECHSPEC §77): every slider driven to
+ * each extreme of [0.0, 1.0] must still yield a strictly valid,
+ * non-degenerate GeoConfig (positive frequencies, bounded
+ * exponents, consistent warp bounds).
+ */
 public class NormalizedGeoConfigTest {
 
+    /**
+     * Sweeps all sliders across {0.0, 0.25, 0.50, 0.75, 1.0} and
+     * asserts the full valid-domain contract on the result.
+     */
     @Test
     @DisplayName("Normalized Config Sweep: Extremes [0.0, 1.0] strictly produce valid GeoConfig instances")
     void testNormalizedParameterSweep() {

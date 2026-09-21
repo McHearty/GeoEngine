@@ -5,14 +5,33 @@ import com.omms.geoenginecore.noise.GeoNoise;
 import com.omms.geoenginecore.noise.NoiseDomain;
 import com.omms.geoenginecore.noise.SeedDerivation;
 
+/**
+ * Karst surface modifier (TECHSPEC §125).
+ *
+ * <p>Sinkholes are placed sparsely on a 120-block lattice (about 20%
+ * of cells), jittered within the cell and given an organic,
+ * noise-warped perimeter; tower karst rises where a separate stream
+ * exceeds its high threshold. Both require warm, wet conditions.
+ */
 public final class KarstField {
+    /** Domain seed for sinkhole placement. */
     private final long seed;
+    /** Sinkhole perimeter distortion stream. */
     private final GeoNoise warpNoise;
+    /** Karst tower stream. */
     private final GeoNoise towerNoise;
 
+    /** Sinkhole placement lattice spacing in blocks. */
     private static final double CELL_SIZE = 120.0;
+    /** Nominal sinkhole radius in blocks. */
     private static final double BASE_RADIUS = 28.0;
 
+    /**
+     * Derives the karst seed domains.
+     *
+     * @param worldSeed world seed that roots every seed domain
+     * @param config validated configuration
+     */
     public KarstField(long worldSeed, GeoConfig config) {
         this.seed = SeedDerivation.derive(worldSeed, config.dimensionId(), 
             NoiseDomain.EROSION.getSalt() ^ 0xCA5701L, config.generatorVersion());
@@ -22,6 +41,16 @@ public final class KarstField {
         this.towerNoise = new GeoNoise(sTower);
     }
 
+    /**
+     * Excavates sinkholes in warm, wet soluble-rock terrain
+     * (TECHSPEC §125).
+     *
+     * @param x world-space X of the column
+     * @param z world-space Z of the column
+     * @param temperature normalized temperature at the column
+     * @param humidity normalized humidity at the column
+     * @return non-positive sinkhole depth in blocks
+     */
     public double evaluateSinkholeRelief(double x, double z, double temperature, double humidity) {
         if (temperature < 0.45 || humidity < 0.55) {
             return 0.0;
@@ -59,6 +88,15 @@ public final class KarstField {
         return -26.0 * depth * (humidity * temperature);
     }
 
+    /**
+     * Raises karst towers in hot, wet conditions (TECHSPEC §125).
+     *
+     * @param x world-space X of the column
+     * @param z world-space Z of the column
+     * @param temperature normalized temperature at the column
+     * @param humidity normalized humidity at the column
+     * @return tower relief in blocks, ≥ 0
+     */
     public double evaluateTowerKarstRelief(double x, double z, double temperature, double humidity) {
         if (temperature < 0.65 || humidity < 0.70) {
             return 0.0;

@@ -15,11 +15,30 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 
+/**
+ * Debug exporters for field inspection (TECHSPEC §152-§154).
+ *
+ * <p>Produces CSV field dumps, normalized heightmap PNGs, and
+ * vertical slice PNGs from the deterministic pipeline. All output
+ * depends only on (worldSeed, config, coordinates).
+ */
 public final class GeoDebugExporter {
+    /** Hides the implicit constructor. This is a static utility class. */
     private GeoDebugExporter() {}
 
     /**
-     * Dumps all intermediate geomorphic scalar fields to CSV for tuning GeoConfig parameters (§153).
+     * Dumps all intermediate geomorphic scalar fields to CSV for
+     * tuning GeoConfig parameters (TECHSPEC §153).
+     *
+     * @param kernel field kernel
+     * @param config validated configuration
+     * @param centerChunkX center chunk X of the export area
+     * @param centerChunkZ center chunk Z of the export area
+     * @param radiusChunks export radius in chunks (2r+1)² area
+     * @param outputDir output directory (created as needed)
+     * @param baseName output base name
+     * @return written CSV file
+     * @throws IOException on file I/O failure
      */
     public static File exportFieldsCsv(
         FieldKernel kernel, GeoConfig config, 
@@ -64,7 +83,19 @@ public final class GeoDebugExporter {
     }
 
     /**
-     * Exports a continuous 2D heightmap as a normalized grayscale PNG image (§154).
+     * Exports a continuous 2-D heightmap as a normalized grayscale
+     * PNG image (TECHSPEC §154): blue-tinted below sea level,
+     * gray above.
+     *
+     * @param kernel field kernel
+     * @param config validated configuration
+     * @param centerChunkX center chunk X of the export area
+     * @param centerChunkZ center chunk Z of the export area
+     * @param radiusChunks export radius in chunks (2r+1)² area
+     * @param outputDir output directory (created as needed)
+     * @param baseName output base name
+     * @return written PNG file
+     * @throws IOException on file I/O failure
      */
     public static File exportHeightmapPng(
         FieldKernel kernel, GeoConfig config, 
@@ -112,7 +143,19 @@ public final class GeoDebugExporter {
     }
 
     /**
-     * Renders a vertical 2D cross-section slice (X x Y at fixed Z).
+     * Renders a vertical 2-D cross-section slice (X × Y at fixed Z)
+     * as a PNG: green = final surface, red = cave void, dark gray =
+     * solid, blue = water, near-black = air.
+     *
+     * @param kernel field kernel
+     * @param config validated configuration
+     * @param worldZ fixed world Z of the slice plane
+     * @param centerChunkX center chunk X of the slice line
+     * @param radiusChunks slice radius in chunks (2r+1)² line
+     * @param outputDir output directory (created as needed)
+     * @param baseName output base name
+     * @return written PNG file
+     * @throws IOException on file I/O failure
      */
     public static File exportVerticalSlicePng(
         FieldKernel kernel, GeoConfig config, 
@@ -165,7 +208,15 @@ public final class GeoDebugExporter {
     }
 
     /**
-     * Formats a complete single-column geomorphic diagnostic printout.
+     * Formats a complete single-column geomorphic diagnostic
+     * printout (TECHSPEC §152).
+     *
+     * @param kernel field kernel
+     * @param config validated configuration
+     * @param worldX world X of the column
+     * @param worldY world Y of the voxel
+     * @param worldZ world Z of the column
+     * @return formatted diagnostic text
      */
     public static String queryPoint(FieldKernel kernel, GeoConfig config, int worldX, int worldY, int worldZ) {
         GeoSample s = new GeoSample();

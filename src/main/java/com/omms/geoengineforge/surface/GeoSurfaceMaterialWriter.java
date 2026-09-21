@@ -12,10 +12,34 @@ import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.levelgen.SurfaceRules;
 import net.minecraft.world.level.levelgen.WorldGenerationContext;
 
+/**
+ * Surface dressing on the actual 3-D chunk (TECHSPEC §11, §15, §17).
+ *
+ * <p>For each of the 256 columns: locate the true solid top of the
+ * column in the written chunk, then walk downward from there so rules
+ * are evaluated against the real geometry and blocks are never
+ * placed in air/cave (TECHSPEC §11, §15). All rule context values
+ * (slope, temperature, incision depth, hole flag, above-preliminary
+ * surface) come from the fresh chunk raster in the worker scratchpad
+ * (TECHSPEC §17).
+ */
 public final class GeoSurfaceMaterialWriter {
+    /** Rule evaluator. */
     private final GeoSurfaceRuleEvaluator evaluator = new GeoSurfaceRuleEvaluator();
+    /** Reused rule context (thread-confined, allocation-free). */
     private final MutableGeoSurfaceRuleContext context = new MutableGeoSurfaceRuleContext();
 
+    /**
+     * Applies the data-driven surface rule to one chunk
+     * (TECHSPEC §11, §15, §17).
+     *
+     * @param level generation region
+     * @param chunk rasterized chunk
+     * @param config validated configuration
+     * @param scratchpad worker scratchpad holding the fresh chunk raster
+     * @param surfaceRule data-driven surface rule
+     * @param genContext world generation context
+     */
     public void apply(
         WorldGenRegion level, ChunkAccess chunk, 
         GeoConfig config, WorkerScratchpad scratchpad,

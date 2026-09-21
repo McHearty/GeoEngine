@@ -13,23 +13,44 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Data-driven SurfaceRules interpreter on GeoEngine context
+ * (TECHSPEC §11-§15).
+ *
+ * <p>Vanilla rule/condition sources are read reflectively (accessors
+ * cached once per class) and evaluated against the pipeline context.
+ * GeoEngine extensions: steepness and hole flags from the derivative
+ * and cave fields (TECHSPEC §12, §13); AbovePreliminarySurface from
+ * H₀ (TECHSPEC §11); VerticalGradient and NoiseThreshold replaced by
+ * deterministic coordinate hashes (TECHSPEC §14, §15).
+ */
 public final class GeoSurfaceRuleEvaluator {
-    // Badlands Terracotta Canonical Band Colors
+    /** Plain terracotta band fill. */
     private static final BlockState TERRACOTTA = Blocks.TERRACOTTA.defaultBlockState();
+    /** Orange terracotta band. */
     private static final BlockState ORANGE_TERRACOTTA = Blocks.ORANGE_TERRACOTTA.defaultBlockState();
+    /** White terracotta band. */
     private static final BlockState WHITE_TERRACOTTA = Blocks.WHITE_TERRACOTTA.defaultBlockState();
+    /** Yellow terracotta band. */
     private static final BlockState YELLOW_TERRACOTTA = Blocks.YELLOW_TERRACOTTA.defaultBlockState();
+    /** Brown terracotta band. */
     private static final BlockState BROWN_TERRACOTTA = Blocks.BROWN_TERRACOTTA.defaultBlockState();
+    /** Red terracotta band. */
     private static final BlockState RED_TERRACOTTA = Blocks.RED_TERRACOTTA.defaultBlockState();
+    /** Light gray terracotta band. */
     private static final BlockState LIGHT_GRAY_TERRACOTTA = Blocks.LIGHT_GRAY_TERRACOTTA.defaultBlockState();
 
+    /** 64-entry canonical badlands terracotta band table. */
     private final BlockState[] terracottaBands = new BlockState[64];
+    /** Reflection cache: rule/condition accessor per class name. */
     private static final ConcurrentHashMap<String, Method> METHOD_CACHE = new ConcurrentHashMap<>();
 
+    /** Builds the badlands terracotta band table. */
     public GeoSurfaceRuleEvaluator() {
         initBadlandsBands();
     }
 
+    /** Fills the 64-entry band table with the canonical color cycle. */
     private void initBadlandsBands() {
         for (int i = 0; i < 64; i++) {
             int cycle = i % 16;
@@ -44,6 +65,13 @@ public final class GeoSurfaceRuleEvaluator {
         }
     }
 
+    /**
+     * Looks up (and caches) a no-arg accessor method on a rule class.
+     *
+     * @param clazz rule/condition class
+     * @param methodName accessor name
+     * @return accessor, or null if not found
+     */
     private static Method getAccessor(Class<?> clazz, String methodName) {
         String key = clazz.getName() + "#" + methodName;
         return METHOD_CACHE.computeIfAbsent(key, k -> {
@@ -58,7 +86,13 @@ public final class GeoSurfaceRuleEvaluator {
     }
 
     /**
-     * Evaluates a RuleSource against the GeoSurfaceRuleContext (§11).
+     * Evaluates a rule source against the GeoEngine context
+     * (TECHSPEC §11).
+     *
+     * @param ruleSource rule source to evaluate
+     * @param context rule context
+     * @return matching material state, or null when no child rule
+     *     matches
      */
     @SuppressWarnings("unchecked")
     public BlockState evaluate(SurfaceRules.RuleSource ruleSource, GeoSurfaceRuleContext context) {
@@ -117,7 +151,12 @@ public final class GeoSurfaceRuleEvaluator {
     }
 
     /**
-     * Evaluates ConditionSource nodes against GeoEngine context state (§12, §13).
+     * Evaluates condition sources against GeoEngine context state
+     * (TECHSPEC §11, §12, §13).
+     *
+     * @param condition condition source
+     * @param context rule context
+     * @return condition verdict
      */
     @SuppressWarnings("unchecked")
     public boolean evaluateCondition(SurfaceRules.ConditionSource condition, GeoSurfaceRuleContext context) {
@@ -268,6 +307,14 @@ public final class GeoSurfaceRuleEvaluator {
         return false;
     }
 
+    /**
+     * Badlands terracotta strata: 16-block vertical bands offset by
+     * column X, mapped through the canonical color cycle
+     * (TECHSPEC §15).
+     *
+     * @param context rule context
+     * @return band terracotta state
+     */
     private BlockState evaluateBadlandsBand(GeoSurfaceRuleContext context) {
         int bandIndex = Math.floorMod(context.blockY() + (context.position().getX() / 16), 64);
         return terracottaBands[bandIndex];

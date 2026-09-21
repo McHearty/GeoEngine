@@ -7,9 +7,23 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Static audit of a data-driven SurfaceRules tree (TECHSPEC §15).
+ *
+ * <p>Classifies every rule/condition node as supported, adapted, or
+ * unsupported so mod authors can see exactly which vanilla rule
+ * types the GeoEngine interpreter honors.
+ */
 public final class SurfaceRuleCompatibility {
+    /** Hides the implicit constructor. This is a static utility class. */
     private SurfaceRuleCompatibility() {}
 
+    /**
+     * Audits the whole rule tree (TECHSPEC §15).
+     *
+     * @param ruleSource rule source root
+     * @return compatibility report
+     */
     public static SurfaceRuleCompatibilityReport audit(SurfaceRules.RuleSource ruleSource) {
         Set<String> supported = new HashSet<>();
         Set<String> adapted = new HashSet<>();
@@ -21,6 +35,14 @@ public final class SurfaceRuleCompatibility {
         return new SurfaceRuleCompatibilityReport(fullySupported, supported, adapted, unsupported);
     }
 
+    /**
+     * Recursively classifies rule nodes.
+     *
+     * @param rule rule node
+     * @param supported fully supported node names
+     * @param adapted adapted node descriptions
+     * @param unsupported unrecognized node names
+     */
     @SuppressWarnings("unchecked")
     private static void scanRule(
         SurfaceRules.RuleSource rule, 
@@ -58,6 +80,14 @@ public final class SurfaceRuleCompatibility {
         }
     }
 
+    /**
+     * Recursively classifies condition nodes.
+     *
+     * @param condition condition node
+     * @param supported fully supported node names
+     * @param adapted adapted node descriptions
+     * @param unsupported unrecognized node names
+     */
     private static void scanCondition(
         SurfaceRules.ConditionSource condition, 
         Set<String> supported, Set<String> adapted, Set<String> unsupported

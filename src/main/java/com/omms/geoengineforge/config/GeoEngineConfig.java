@@ -5,23 +5,42 @@ import com.omms.geoenginecore.math.GeoConfigNormalizer;
 import com.omms.geoenginecore.math.NormalizedGeoParams;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
+/**
+ * NeoForge ModConfigSpec for GeoEngine terrain sliders
+ * (TECHSPEC §77).
+ *
+ * <p>All sliders are normalized [0.0, 1.0]. Active spec values are
+ * converted into a validated {@link GeoConfig} at world creation;
+ * changes to the TOML file apply on the next world or restart.
+ */
 public final class GeoEngineConfig {
+    /** Built spec: the single source of the TOML file. */
     public static final ModConfigSpec SPEC;
 
     // Macro Scale & Geometry
+    /** Continental landmass/ocean scale (0.0 = small islands, 1.0 = vast continents). */
     public static final ModConfigSpec.DoubleValue CONTINENTAL_SCALE;
+    /** Wavelength of the primary mountain band (0.0 = tight crumpled ridges, 1.0 = broad ranges). */
     public static final ModConfigSpec.DoubleValue MOUNTAIN_SCALE;
+    /** Height of the primary mountain band (0.0 = rolling hills, 1.0 = towering peaks). */
     public static final ModConfigSpec.DoubleValue MOUNTAIN_RELIEF;
+    /** Height and roughness of the secondary ridge band. */
     public static final ModConfigSpec.DoubleValue RIDGE_ROUGHNESS;
+    /** Flatness of lowlands and valleys (0.0 = narrow V-valleys, 1.0 = broad flat plains). */
     public static final ModConfigSpec.DoubleValue VALLEY_FLATNESS;
+    /** Directional tectonic shear / anisotropy (0.0 = isotropic, 1.0 = strong linear ridges). */
     public static final ModConfigSpec.DoubleValue STRESS_SHEAR;
 
     // Geomorphic Weathering & Hydrology
+    /** Long-term erosion intensity (0.0 = sharp unweathered rock, 1.0 = heavily eroded). */
     public static final ModConfigSpec.DoubleValue EROSION_STRENGTH;
+    /** River/canyon incision depth (0.0 = shallow streams, 1.0 = deep gorges). */
     public static final ModConfigSpec.DoubleValue RIVER_INCISION_DEPTH;
+    /** Speed of the incision response to flow accumulation. */
     public static final ModConfigSpec.DoubleValue RIVER_INCISION_RATE;
 
     // Volumetric 3D Detail
+    /** 3-D volumetric cliff overhang / rock-grain intensity. */
     public static final ModConfigSpec.DoubleValue CLIFF_OVERHANG_INTENSITY;
 
     static {
@@ -76,7 +95,11 @@ public final class GeoEngineConfig {
     }
 
     /**
-     * Constructs a validated GeoConfig instance dynamically from the active TOML config.
+     * Constructs a validated {@link GeoConfig} dynamically from the
+     * active TOML config (TECHSPEC §77).
+     *
+     * @param version generator version bound into the config identity
+     * @return validated Overworld configuration
      */
     public static GeoConfig getActiveOverworldConfig(int version) {
         NormalizedGeoParams params = new NormalizedGeoParams(

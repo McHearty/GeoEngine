@@ -13,7 +13,14 @@ import java.util.concurrent.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Multi-thread / multi-seed determinism matrix (TECHSPEC §167):
+ * 16 threads share one kernel across a 5-seed matrix, and every
+ * thread-confined scratchpad must reproduce the baseline raster
+ * bit-exactly (0.0 tolerance).
+ */
 public class MultiSeedMultiThreadMatrixTest {
+    /** Seed matrix covering zero, mid, and max-magnitude seeds. */
     private static final long[] SEED_MATRIX = {
         0x123456789ABCDEFL,
         0xDEADBEEFCAFEBABEL,
@@ -22,6 +29,9 @@ public class MultiSeedMultiThreadMatrixTest {
         0xFEDCBA9876543210L
     };
 
+    /**
+     * @throws Exception if the executor fails or a future times out
+     */
     @Test
     @DisplayName("Multi-Thread / Multi-Seed Determinism Matrix")
     void testMatrixDeterminism() throws Exception {

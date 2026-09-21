@@ -10,11 +10,22 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Phase-5 landform grammar (TECHSPEC §170-§181): scale
+ * discrimination, priority override, compound classification, and
+ * curvature/prominence gates.
+ */
 public class Phase5LandformGrammarTest {
+    /** Default Overworld configuration. */
     private GeoConfig config;
+    /** Scalar field kernel. */
     private ScalarFieldKernel kernel;
+    /** Landform classifier. */
     private LandformClassifier classifier;
 
+    /**
+     * Installs the shared test fixtures.
+     */
     @BeforeEach
     void setUp() {
         config = GeoConfig.defaultOverworld(1);
@@ -22,6 +33,10 @@ public class Phase5LandformGrammarTest {
         classifier = new LandformClassifier(config);
     }
 
+    /**
+     * Flat 32-block neighborhood + low slope + low elevation →
+     * PLATEAU/PLAINS, not mesa/butte (TECHSPEC §181).
+     */
     @Test
     @DisplayName("Multi-Scale Discrimination: Butte vs Mesa vs Plateau")
     void testTablelandScaleDiscrimination() {
@@ -35,6 +50,10 @@ public class Phase5LandformGrammarTest {
         assertTrue(type == LandformType.PLATEAU || type == LandformType.PLAINS);
     }
 
+    /**
+     * Deep incision on a steep slope classifies CANYON over generic
+     * VALLEY (TECHSPEC §180).
+     */
     @Test
     @DisplayName("Priority Resolution: Canyon overrides generic Valley")
     void testCanyonPriorityOverride() {
@@ -55,6 +74,10 @@ public class Phase5LandformGrammarTest {
         assertTrue(LandformBits.hasProcess(bits, LandformBits.PROCESS_FLUVIAL));
     }
 
+    /**
+     * FJORD requires GLACIAL + COASTAL + trough shape jointly
+     * (TECHSPEC §172).
+     */
     @Test
     @DisplayName("Compound Landform: Fjord detection requires Glacial + Coastal + Trough")
     void testFjordCompoundClassification() {
@@ -75,6 +98,11 @@ public class Phase5LandformGrammarTest {
         assertTrue(LandformBits.hasProcess(bits, LandformBits.PROCESS_COASTAL));
     }
 
+    /**
+     * High-elevation, deeply incised, closed convex top →
+     * MOUNTAIN/MASSIF/RIDGE with the ALPINE environment bit
+     * (TECHSPEC §170, §176).
+     */
     @Test
     @DisplayName("Curvature & Prominence: Mountain Massif Identification")
     void testMassifClassification() {

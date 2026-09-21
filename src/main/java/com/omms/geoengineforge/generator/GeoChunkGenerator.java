@@ -51,7 +51,19 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * GeoEngine chunk generator: the full raster pipeline
+ * (TECHSPEC §210-§214).
+ *
+ * <p>fillFromNoise runs the 2-D surface raster plus the section
+ * pipeline (SOLID/AIR/BAND) and heightmaps. buildSurface applies
+ * data-driven SurfaceRules with the freshly rasterized scratchpad —
+ * no vanilla NoiseChunk, no 2-D/3-D mismatch — then materializes
+ * gated special features in the Overworld. Carvers are disabled; the
+ * world is fully field-driven (TECHSPEC §210).
+ */
 public class GeoChunkGenerator extends ChunkGenerator {
+    /** Serialization codec: (biome source, noise settings, seed, dimension id). */
     public static final MapCodec<GeoChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(instance ->
         instance.group(
             BiomeSource.CODEC.fieldOf("biome_source").forGetter((GeoChunkGenerator gen) -> gen.biomeSource),
@@ -69,17 +81,33 @@ public class GeoChunkGenerator extends ChunkGenerator {
         })
     );
 
+    /** World seed (reseedable). */
     private long worldSeed;
+    /** Dimension id: 0 overworld, 1 nether, 2 end. */
     private final int dimensionId;
+    /** Resolved noise generator settings (surface rules, materials). */
     private final Holder<NoiseGeneratorSettings> settings;
+    /** Validated configuration. */
     private final GeoConfig config;
+    /** Validated dimension profile. */
     private final DimensionProfile profile;
+    /** Best available field kernel (SIMD or Scalar). */
     private FieldKernel kernel;
+    /** Coarse section classifier. */
     private SectionClassifier sectionClassifier;
+    /** Strata material resolver. */
     private MaterialResolver materialResolver;
+    /** Section rasterizer. */
     private ChunkRasterizer chunkRasterizer;
+    /** Surface rule writer. */
     private final GeoSurfaceMaterialWriter surfaceMaterialWriter = new GeoSurfaceMaterialWriter();
 
+    /**
+     * @param biomeSource biome source
+     * @param settings resolved noise generator settings
+     * @param worldSeed world seed
+     * @param dimensionId dimension id: 0 overworld, 1 nether, 2 end
+     */
     public GeoChunkGenerator(
         BiomeSource biomeSource, 
         Holder<NoiseGeneratorSettings> settings, 
@@ -99,6 +127,12 @@ public class GeoChunkGenerator extends ChunkGenerator {
         reseed(worldSeed);
     }
 
+    /**
+     * Rebuilds all seed-bound components after a world seed change
+     * (TECHSPEC §67).
+     *
+     * @param seed new world seed
+     */
     public synchronized void reseed(long seed) {
         this.worldSeed = seed;
         this.kernel = KernelProvider.createKernel(seed, this.profile);
@@ -110,6 +144,14 @@ public class GeoChunkGenerator extends ChunkGenerator {
         }
     }
 
+    /**
+     * Reseeds with the persisted state's seed before super.
+     *
+     * @param structureSetLookup structure set lookup
+     * @param randomState random state
+     * @param seed persisted world seed
+     * @return generator state
+     */
     @Override
     public ChunkGeneratorStructureState createState(
         HolderLookup<StructureSet> structureSetLookup, RandomState randomState, long seed
@@ -118,11 +160,23 @@ public class GeoChunkGenerator extends ChunkGenerator {
         return super.createState(structureSetLookup, randomState, seed);
     }
 
+    /**
+     * @return this generator's codec
+     */
     @Override
     protected MapCodec<? extends ChunkGenerator> codec() {
         return CODEC;
     }
 
+    /**
+     * Rasterizes the chunk from fields (TECHSPEC §210-§212).
+     *
+     * @param blender blending context
+     * @param randomState random state
+     * @param structureManager structure manager
+     * @param chunk chunk to fill
+     * @return completed future with the rasterized chunk
+     */
     @Override
     public CompletableFuture<ChunkAccess> fillFromNoise(
         Blender blender, RandomState randomState, 
@@ -132,6 +186,12 @@ public class GeoChunkGenerator extends ChunkGenerator {
         return CompletableFuture.completedFuture(chunk);
     }
 
+    /**
+     * Runs the 2-D surface raster, heightmaps, and section
+     * classification for one chunk (TECHSPEC §210-§212).
+     *
+     * @param chunk chunk to fill
+     */
     private void rasterizeChunk(ChunkAccess chunk) {
         ChunkPos pos = chunk.getPos();
         int chunkWorldX = pos.getMinBlockX();
@@ -150,6 +210,15 @@ public class GeoChunkGenerator extends ChunkGenerator {
         );
     }
 
+    /**
+     * Applies SurfaceRules and gated special features
+     * (TECHSPEC §213-§214).
+     *
+     * @param level generation region
+     * @param structureManager structure manager
+     * @param randomState random state
+     * @param chunk chunk to decorate
+     */
     @Override
     public void buildSurface(
         WorldGenRegion level, StructureManager structureManager, 
@@ -185,6 +254,15 @@ public class GeoChunkGenerator extends ChunkGenerator {
         }
     }
 
+    /**
+     * Detects and materializes special features in the interior
+     * 14×14 of the chunk (TECHSPEC §200-§204).
+     *
+     * @param chunk chunk being generated
+     * @param sp worker scratchpad holding the fresh chunk raster
+     * @param originX world X of the chunk origin
+     * @param originZ world Z of the chunk origin
+     */
     private void materializeSpecialFeatures(ChunkAccess chunk, WorkerScratchpad sp, int originX, int originZ) {
         SpecialFeatureDetector featureDetector = new SpecialFeatureDetector(config);
         BlockPos.MutableBlockPos mutPos = new BlockPos.MutableBlockPos();
@@ -215,6 +293,14 @@ public class GeoChunkGenerator extends ChunkGenerator {
         }
     }
 
+    /**
+     * Runs vanilla biome decoration on top of the rasterized
+     * terrain.
+     *
+     * @param level generation level
+     * @param chunk chunk to decorate
+     * @param structureManager structure manager
+     */
     @Override
     public void applyBiomeDecoration(
         WorldGenLevel level, ChunkAccess chunk, 
@@ -223,8 +309,24 @@ public class GeoChunkGenerator extends ChunkGenerator {
         super.applyBiomeDecoration(level, chunk, structureManager);
     }
 
+    /**
+     * No-op: mob spawning is unchanged.
+     *
+     * @param level generation region
+     */
     @Override public void spawnOriginalMobs(WorldGenRegion level) {}
 
+    /**
+     * No-op: carvers are disabled; the world is fully field-driven.
+     *
+     * @param level generation level
+     * @param seed world seed
+     * @param randomState random state
+     * @param biomeManager biome manager
+     * @param structureManager structure manager
+     * @param chunk chunk to carve
+     * @param step carving step
+     */
     @Override
     public void applyCarvers(
         WorldGenRegion level, long seed, RandomState randomState, 
@@ -232,10 +334,32 @@ public class GeoChunkGenerator extends ChunkGenerator {
         GenerationStep.Carving step
     ) {}
 
+    /**
+     * @return world height span
+     */
     @Override public int getGenDepth() { return config.worldMaxY() - config.worldMinY(); }
+
+    /**
+     * @return configured sea level
+     */
     @Override public int getSeaLevel() { return config.seaLevel(); }
+
+    /**
+     * @return configured world floor
+     */
     @Override public int getMinY() { return config.worldMinY(); }
 
+    /**
+     * Base height for vanilla systems, taken from the final surface
+     * H_f.
+     *
+     * @param x world X of the column
+     * @param z world Z of the column
+     * @param type heightmap type
+     * @param level height accessor
+     * @param randomState random state
+     * @return clamped final surface height
+     */
     @Override
     public int getBaseHeight(int x, int z, Heightmap.Types type, LevelHeightAccessor level, RandomState randomState) {
         WorkerScratchpad sp = ScratchpadProvider.get();
@@ -244,6 +368,16 @@ public class GeoChunkGenerator extends ChunkGenerator {
         return Math.clamp(surf, level.getMinBuildHeight(), level.getMaxBuildHeight() - 1);
     }
 
+    /**
+     * Base column of resolved solid materials from the world floor
+     * to the final surface.
+     *
+     * @param x world X of the column
+     * @param z world Z of the column
+     * @param level height accessor
+     * @param randomState random state
+     * @return base column
+     */
     @Override
     public net.minecraft.world.level.NoiseColumn getBaseColumn(int x, int z, LevelHeightAccessor level, RandomState randomState) {
         int minY = level.getMinBuildHeight();
@@ -263,6 +397,13 @@ public class GeoChunkGenerator extends ChunkGenerator {
         return new net.minecraft.world.level.NoiseColumn(columnMin, states);
     }
 
+    /**
+     * Debug-screen footer.
+     *
+     * @param info info list
+     * @param randomState random state
+     * @param pos query position
+     */
     @Override
     public void addDebugScreenInfo(List<String> info, RandomState randomState, BlockPos pos) {
         info.add(String.format("GeoEngine 1.21.1: Seed=%d Dim=%d", worldSeed, dimensionId));

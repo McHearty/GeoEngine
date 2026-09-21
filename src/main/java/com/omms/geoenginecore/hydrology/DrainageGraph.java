@@ -5,29 +5,55 @@ import com.omms.geoenginecore.math.ScalarFieldKernel;
 import java.util.Arrays;
 
 /**
- * Authoritative Topological D8 Drainage Graph (§26, §27).
- * Simulates a 24x24 coarse grid (16x16 core + 4-cell halo buffer on all sides = 384x384 blocks).
- * Eliminates region boundary truncation and accumulates flow strictly downstream.
+ * Authoritative topological D8 drainage graph (TECHSPEC §26, §27).
+ *
+ * <p>Routes flow on a 24×24 coarse lattice (16×16 core plus a
+ * 4-cell halo on every side, covering 384×384 blocks). The halo
+ * eliminates region-boundary truncation, and flow is accumulated
+ * strictly downstream along steepest-descent D8 links.
  */
 public final class DrainageGraph {
+    /** Edge length of one routing cell in blocks. */
     public static final int CELL_SIZE = 16;
-    public static final int CORE_CELLS = 16;  // 16x16 core cells = 256x256 block active region
-    public static final int HALO_CELLS = 4;   // 4-cell halo buffer (64 blocks) on each boundary
-    public static final int GRID_DIM = CORE_CELLS + (HALO_CELLS * 2); // 24x24 cells
-    public static final int TOTAL_CELLS = GRID_DIM * GRID_DIM; // 576 cells
+    /** Core cells per axis: the 256×256 block active region. */
+    public static final int CORE_CELLS = 16;
+    /** Halo cells per boundary: 64 blocks of context. */
+    public static final int HALO_CELLS = 4;
+    /** Total cells per axis (core + halo on both sides). */
+    public static final int GRID_DIM = CORE_CELLS + (HALO_CELLS * 2);
+    /** Total cells in the expanded grid. */
+    public static final int TOTAL_CELLS = GRID_DIM * GRID_DIM;
 
+    /** H₀ elevation at each cell center. */
     public final double[] elevation = new double[TOTAL_CELLS];
+    /** Downstream receiver of each cell (−1 for sinks). */
     public final int[] receiverIndex = new int[TOTAL_CELLS];
+    /** Catchment discharge A_f of each cell, including upstream contributions. */
     public final double[] flowAccumulation = new double[TOTAL_CELLS];
 
+    /** Unprocessed upstream children per cell, used by Kahn's algorithm. */
     private final int[] inDegree = new int[TOTAL_CELLS];
+    /** FIFO work queue for topological accumulation. */
     private final int[] topoQueue = new int[TOTAL_CELLS];
 
+    /** World X of the expanded grid origin. */
     private int gridOriginX;
+    /** World Z of the expanded grid origin. */
     private int gridOriginZ;
 
     /**
-     * Builds the authoritative D8 drainage network across the 24x24 expanded catchment.
+     * Builds the authoritative D8 drainage network across the 24×24
+     * expanded catchment (TECHSPEC §26, §27).
+     *
+     * <p>Step 1 samples H₀ at every cell center (base discharge 1.0);
+     * Step 2 assigns each cell to its steepest downhill D8 neighbor;
+     * Step 3 runs Kahn's topological sort from headwaters and
+     * propagates full upstream catchment discharge downstream, so
+     * every cell's A_f equals its exact catchment size.
+     *
+     * @param kernel H₀ kernel of the current configuration
+     * @param regionOriginX world X of the region's core origin
+     * @param regionOriginZ world Z of the region's core origin
      */
     public void buildRegion(ScalarFieldKernel kernel, int regionOriginX, int regionOriginZ) {
         this.gridOriginX = regionOriginX - (HALO_CELLS * CELL_SIZE);
@@ -114,7 +140,13 @@ public final class DrainageGraph {
     }
 
     /**
-     * Bilinearly samples continuous flow accumulation Af at world coordinate (wx, wz).
+     * Bilinearly samples the continuous flow accumulation A_f at a
+     * world coordinate, with a saturating logarithmic transform for
+     * incision scaling (TECHSPEC §27).
+     *
+     * @param wx world-space X
+     * @param wz world-space Z
+     * @return flow accumulation proxy A_f, ≥ 0
      */
     public double sampleAccumulation(double wx, double wz) {
         double cellX = (wx - gridOriginX) / (double) CELL_SIZE;

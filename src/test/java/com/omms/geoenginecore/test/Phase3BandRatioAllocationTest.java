@@ -12,11 +12,22 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Phase-3 section pruning budget (TECHSPEC §150): on a 2048-block
+ * column, N_band / N_total must stay under 20%, with a healthy
+ * SOLID/AIR mix.
+ */
 public class Phase3BandRatioAllocationTest {
+    /** Default Overworld configuration. */
     private GeoConfig config;
+    /** Scalar field kernel. */
     private ScalarFieldKernel kernel;
+    /** Section classifier. */
     private SectionClassifier classifier;
 
+    /**
+     * Installs the shared test fixtures.
+     */
     @BeforeEach
     void setUp() {
         config = GeoConfig.defaultOverworld(1);
@@ -24,6 +35,11 @@ public class Phase3BandRatioAllocationTest {
         classifier = new SectionClassifier(config, kernel.getCaveField());
     }
 
+    /**
+     * Classifies all 128 sections of a 2048-block column and
+     * asserts the &lt;20% BAND budget plus a healthy SOLID/AIR mix
+     * (TECHSPEC §150).
+     */
     @Test
     @DisplayName("Quantitative Section Pruning (N_band / N_total <= 20% on 2048-block column)")
     void testBandRatioMeasurementOn2048World() {

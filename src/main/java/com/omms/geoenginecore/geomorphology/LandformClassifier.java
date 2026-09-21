@@ -4,18 +4,62 @@ import com.omms.geoenginecore.math.GeoConfig;
 import com.omms.geoenginecore.math.GeoSample;
 import com.omms.geoenginecore.math.ScalarFieldKernel;
 
+/**
+ * Landform grammar classifier (TECHSPEC §95-§99).
+ *
+ * <p>Resolves a column's {@link LandformType} from the 9-point
+ * Hessian eigenstructure, multi-scale relief metrics, slope, and
+ * process/environment flags, using a fixed priority hierarchy:
+ * Tier 1 volcanics, Tier 2 fluvial/glacial channels (fjords,
+ * canyons, gorges, valleys), Tier 3 tablelands (plateaus, mesas,
+ * buttes), Tier 4 positive mountains (massifs, mountains, ridges,
+ * hills), then aeolian dune fields, basins, saddles, and the plains
+ * fallback. The grammar is deterministic and order-sensitive so the
+ * classification is reproducible (TECHSPEC §95).
+ */
 public final class LandformClassifier {
+    /** Curvature threshold below which a principal curvature reads as zero. */
     private static final double EPSILON_CURVATURE = 0.008;
+    /** |∇H| at or below which a column reads as flat. */
     private static final double FLAT_SLOPE_THRESHOLD = 0.06;
 
+    /** Active validated configuration. */
     private final GeoConfig config;
+    /** Thread-confined Hessian result reuse (TECHSPEC §66). */
     private final HessianSolver.CurvatureResult curvatureScratch = new HessianSolver.CurvatureResult();
+    /** Thread-confined multi-scale relief reuse (TECHSPEC §66). */
     private final MultiScaleRelief.ReliefReport reliefScratch = new MultiScaleRelief.ReliefReport();
 
+    /**
+     * @param config validated configuration supplying the sea level
+     */
     public LandformClassifier(GeoConfig config) {
         this.config = config;
     }
 
+    /**
+     * Classifies one column and stores the packed result on
+     * {@code sample} (TECHSPEC §96).
+     *
+     * <p>Process flags are evaluated from the sample's pipeline
+     * fields (TECHSPEC §97), the environment band from altitude
+     * (TECHSPEC §98), the landform type from the priority grammar,
+     * and feature flags from the resolved type plus geometry.
+     *
+     * @param kernel H₀ kernel needed for multi-scale relief
+     * @param sample pipeline sample of the column (updated in place)
+     * @param hC center cell elevation
+     * @param hN northern neighbor elevation
+     * @param hS southern neighbor elevation
+     * @param hW western neighbor elevation
+     * @param hE eastern neighbor elevation
+     * @param hNW northwest diagonal elevation
+     * @param hNE northeast diagonal elevation
+     * @param hSW southwest diagonal elevation
+     * @param hSE southeast diagonal elevation
+     * @param delta stencil spacing in blocks
+     * @return packed classification bits
+     */
     public int classify(
         ScalarFieldKernel kernel, GeoSample sample,
         double hC, double hN, double hS, double hW, double hE,
@@ -74,6 +118,19 @@ public final class LandformClassifier {
         return bits;
     }
 
+    /**
+     * Applies the priority landform grammar (TECHSPEC §95, §102).
+     *
+     * @param sample pipeline sample of the column
+     * @param l1 largest principal curvature
+     * @param l2 smallest principal curvature
+     * @param slope |∇H|
+     * @param altitude final surface H_f
+     * @param seaLevel dimension sea level
+     * @param relief multi-scale relief report
+     * @param processBits process flags evaluated so far
+     * @return resolved landform type
+     */
     private LandformType resolveLandform(
         GeoSample sample, double l1, double l2, double slope, double altitude, double seaLevel,
         MultiScaleRelief.ReliefReport relief, int processBits

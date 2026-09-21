@@ -20,7 +20,19 @@ import net.minecraft.world.level.biome.*;
 
 import java.util.stream.Stream;
 
+/**
+ * GeoEngine biome source: assigns biomes from the deterministic
+ * pipeline instead of vanilla multi-noise alone (TECHSPEC §205-§207).
+ *
+ * <p>Overworld biomes come from vanilla multi-noise parameters whose
+ * six climate axes are driven by pipeline fields (temperature,
+ * humidity, continentalness, erosion, depth, weirdness), so biome
+ * borders follow real geomorphic structure; incised river channels
+ * receive River/Frozen River directly. Nether and End dimensions
+ * use their standard parameters.
+ */
 public final class GeoBiomeSource extends BiomeSource {
+    /** Serialization codec: (seed, dimension id, biome registry). */
     public static final MapCodec<GeoBiomeSource> CODEC = RecordCodecBuilder.mapCodec(instance ->
         instance.group(
             Codec.LONG.optionalFieldOf("seed", 0L).forGetter((GeoBiomeSource s) -> s.worldSeed),
@@ -29,33 +41,60 @@ public final class GeoBiomeSource extends BiomeSource {
         ).apply(instance, (Long seed, Integer dimId, HolderGetter<Biome> biomes) -> new GeoBiomeSource(seed, dimId, biomes))
     );
 
+    /** World seed that roots every seed domain (reseedable). */
     private long worldSeed;
+    /** Dimension id: 0 overworld, 1 nether, 2 end. */
     private final int dimensionId;
+    /** Biome registry access. */
     private final HolderGetter<Biome> biomeGetter;
+    /** Validated dimension profile. */
     private final DimensionProfile profile;
+    /** Validated configuration. */
     private final GeoConfig config;
+    /** Scalar field kernel (re-seeded with the world). */
     private ScalarFieldKernel kernel;
+    /** Effective-temperature and zone classifier. */
     private final ClimateClassifier climateClassifier;
 
     // Multi-noise parameter trees
+    /** Vanilla overworld multi-noise biome parameters. */
     private final Climate.ParameterList<Holder<Biome>> overworldParameters;
+    /** Vanilla nether multi-noise biome parameters. */
     private final Climate.ParameterList<Holder<Biome>> netherParameters;
 
     // Overworld Biome Holders
+    /** River biome holder. */
     private final Holder<Biome> river;
+    /** Frozen river biome holder. */
     private final Holder<Biome> frozenRiver;
 
     // The End Biome Holders
+    /** End biome holder. */
     private final Holder<Biome> theEnd;
+    /** End highlands biome holder. */
     private final Holder<Biome> endHighlands;
+    /** End midlands biome holder. */
     private final Holder<Biome> endMidlands;
+    /** Small End islands biome holder. */
     private final Holder<Biome> smallEndIslands;
+    /** End barrens biome holder. */
     private final Holder<Biome> endBarrens;
 
+    /**
+     * Overworld convenience constructor.
+     *
+     * @param worldSeed world seed
+     * @param biomes biome registry access
+     */
     public GeoBiomeSource(long worldSeed, HolderGetter<Biome> biomes) {
         this(worldSeed, 0, biomes);
     }
 
+    /**
+     * @param worldSeed world seed
+     * @param dimensionId dimension id: 0 overworld, 1 nether, 2 end
+     * @param biomes biome registry access
+     */
     public GeoBiomeSource(long worldSeed, int dimensionId, HolderGetter<Biome> biomes) {
         this.worldSeed = worldSeed;
         this.dimensionId = dimensionId;
@@ -89,16 +128,28 @@ public final class GeoBiomeSource extends BiomeSource {
         this.endBarrens = biomes.getOrThrow(Biomes.END_BARRENS);
     }
 
+    /**
+     * Re-roots the field kernel after a world seed change
+     * (TECHSPEC §67).
+     *
+     * @param seed new world seed
+     */
     public synchronized void reseed(long seed) {
         this.worldSeed = seed;
         this.kernel = new ScalarFieldKernel(seed, this.profile);
     }
 
+    /**
+     * @return this source's codec
+     */
     @Override
     protected MapCodec<? extends BiomeSource> codec() {
         return CODEC;
     }
 
+    /**
+     * @return biomes this source may produce for its dimension
+     */
     @Override
     protected Stream<Holder<Biome>> collectPossibleBiomes() {
         if (dimensionId == 1) {
@@ -113,6 +164,15 @@ public final class GeoBiomeSource extends BiomeSource {
         );
     }
 
+    /**
+     * Resolves the biome for one climate query (TECHSPEC §205-§207).
+     *
+     * @param quartX query X in 4-block climate quarts
+     * @param quartY query Y in 4-block climate quarts
+     * @param quartZ query Z in 4-block climate quarts
+     * @param sampler vanilla climate sampler (unused by the pipeline)
+     * @return biome holder for the queried position
+     */
     @Override
     public Holder<Biome> getNoiseBiome(int quartX, int quartY, int quartZ, Climate.Sampler sampler) {
         int worldX = quartX << 2;
@@ -164,6 +224,13 @@ public final class GeoBiomeSource extends BiomeSource {
         return overworldParameters.findValue(overworldTarget);
     }
 
+    /**
+     * Maps End surface elevation to the erosion axis used by the End
+     * biome parameter list (TECHSPEC §207).
+     *
+     * @param sample pipeline sample of the column
+     * @return End erosion axis value
+     */
     private float computeEndErosion(GeoSample sample) {
         double surfaceH = sample.finalSurface;
         if (surfaceH < 0.0) return -0.60f;
@@ -172,6 +239,14 @@ public final class GeoBiomeSource extends BiomeSource {
         return 0.75f;
     }
 
+    /**
+     * Builds the six-axis climate target point from pipeline fields
+     * (TECHSPEC §205-§206).
+     *
+     * @param sample pipeline sample of the column
+     * @param worldY absolute world Y of the query
+     * @return quantized climate target point
+     */
     private Climate.TargetPoint convertToOverworldClimate(GeoSample sample, int worldY) {
         double effTemp = climateClassifier.getEffectiveTemperature(sample.temperature, worldY);
         float temperature = (float) Math.clamp((effTemp * 2.0) - 1.0, -1.0, 1.0);
@@ -193,6 +268,13 @@ public final class GeoBiomeSource extends BiomeSource {
         );
     }
 
+    /**
+     * Maps surface height relative to sea level onto the vanilla
+     * continentalness axis (TECHSPEC §206).
+     *
+     * @param deltaH surface height minus sea level, in blocks
+     * @return continentalness axis value in [-1, 1]
+     */
     private float computeContinentalness(double deltaH) {
         if (deltaH < -32.0) {
             double t = Math.clamp((deltaH - (-64.0)) / 32.0, 0.0, 1.0);
@@ -215,6 +297,15 @@ public final class GeoBiomeSource extends BiomeSource {
         }
     }
 
+    /**
+     * Maps elevation, slope, and incision onto the vanilla erosion
+     * axis (TECHSPEC §206).
+     *
+     * @param hf final surface H_f
+     * @param slope |∇H|
+     * @param incision channel incision R
+     * @return erosion axis value in [-1, 1]
+     */
     private float computeErosion(double hf, double slope, double incision) {
         double seaLevel = config.seaLevel();
         double heightAboveSea = Math.max(0.0, hf - seaLevel);
@@ -230,6 +321,13 @@ public final class GeoBiomeSource extends BiomeSource {
         return Math.clamp(baseErosion, -1.0f, 1.0f);
     }
 
+    /**
+     * Maps stress warp and special conditions onto the vanilla
+     * weirdness axis (TECHSPEC §206).
+     *
+     * @param sample pipeline sample of the column
+     * @return weirdness axis value in [-1, 1]
+     */
     private float computeWeirdness(GeoSample sample) {
         if (sample.riverIncision > 6.0) return -0.67f;
         if (sample.finalSurface > (double) (config.seaLevel() + 240)) return 0.0f;

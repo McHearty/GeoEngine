@@ -4,9 +4,26 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.levelgen.Heightmap;
 
+/**
+ * Worldgen heightmap population (TECHSPEC §212).
+ *
+ * <p>Fills WORLD_SURFACE_WG and OCEAN_FLOOR_WG from the rasterized
+ * continuous surface grid; both are clamped to the buildable range
+ * and validated against the written chunk data (TECHSPEC §216).
+ */
 public final class HeightmapWriter {
+    /** Hides the implicit constructor. This is a static utility class. */
     private HeightmapWriter() {}
 
+    /**
+     * Populates both WG heightmaps from the surface grid
+     * (TECHSPEC §212).
+     *
+     * @param chunk chunk to stamp
+     * @param surfaceGrid 16×16 continuous surface H grid
+     * @param seaLevel configured sea level
+     * @param solidSample representative solid state for validation
+     */
     public static void populate(
         ChunkAccess chunk,
         double[] surfaceGrid,

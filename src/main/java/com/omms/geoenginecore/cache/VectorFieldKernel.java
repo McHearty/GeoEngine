@@ -13,24 +13,56 @@ import com.omms.geoenginecore.memory.WorkerScratchpad;
 import jdk.incubator.vector.DoubleVector;
 import jdk.incubator.vector.VectorSpecies;
 
+/**
+ * Hardware SIMD field kernel (TECHSPEC §63-§64).
+ *
+ * <p>Uses the Java 21 incubator Vector API (preferred species) to
+ * interpolate the 6×6 macro grid into the 16×16 chunk surface
+ * arrays in 8-lane batches, with the Scalar kernel as the
+ * authoritative fallback for everything the SIMD path does not
+ * vectorize. Results must be bit-identical to the Scalar
+ * reference (TECHSPEC §64).
+ */
 public final class VectorFieldKernel implements FieldKernel {
+    /** Preferred SIMD double-lane species. */
     private static final VectorSpecies<Double> SPECIES = DoubleVector.SPECIES_PREFERRED;
+    /** Lanes per vector. */
     private static final int V_LENGTH = SPECIES.length();
 
+    /** Active validated configuration. */
     private final GeoConfig config;
+    /** Scalar reference authority for non-vectorized stages. */
     private final ScalarFieldKernel fallbackKernel;
+    /** LRU cache of evaluated macro grids. */
     private final MacroGridCache macroCache;
 
+    /**
+     * Overworld convenience constructor.
+     *
+     * @param worldSeed world seed that roots every seed domain
+     * @param config validated Overworld configuration
+     */
     public VectorFieldKernel(long worldSeed, GeoConfig config) {
         this(worldSeed, new OverworldProfile(config));
     }
 
+    /**
+     * @param worldSeed world seed that roots every seed domain
+     * @param profile validated dimension profile
+     */
     public VectorFieldKernel(long worldSeed, DimensionProfile profile) {
         this.config = profile.getConfig();
         this.fallbackKernel = new ScalarFieldKernel(worldSeed, profile);
         this.macroCache = new MacroGridCache(2048);
     }
 
+    /**
+     * Loads the chunk's 6×6 macro grid, computing it on cache miss.
+     *
+     * @param scratchpad worker scratchpad
+     * @param chunkWorldX world-coordinate X of the chunk
+     * @param chunkWorldZ world-coordinate Z of the chunk
+     */
     @Override
     public void evaluateMacroGrid(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ) {
         long key = MacroGridCache.packKey(chunkWorldX, chunkWorldZ);
@@ -40,6 +72,16 @@ public final class VectorFieldKernel implements FieldKernel {
         }
     }
 
+    /**
+     * Rasterizes the 16×16 chunk surface stage in SIMD (TECHSPEC
+     * §4, §64): bilinear interpolation of every macro field into the
+     * chunk grids and the climate multiplier, then the Scalar
+     * kernel's deterministic finish stage.
+     *
+     * @param scratchpad worker scratchpad
+     * @param chunkWorldX world-coordinate X of the chunk
+     * @param chunkWorldZ world-coordinate Z of the chunk
+     */
     @Override
     public void rasterizeSurfaceChunk(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ) {
         evaluateMacroGrid(scratchpad, chunkWorldX, chunkWorldZ);
@@ -96,6 +138,21 @@ public final class VectorFieldKernel implements FieldKernel {
         fallbackKernel.finishSurfaceProcessing(scratchpad, chunkWorldX, chunkWorldZ);
     }
 
+    /**
+     * Bilinearly interpolates one macro field into a row of chunk
+     * surface slots.
+     *
+     * @param scratchpad worker scratchpad (lane work arrays)
+     * @param macroArr 6×6 macro source grid
+     * @param targetArr chunk surface destination grid
+     * @param targetOffset destination row start
+     * @param z0 lower macro row index
+     * @param macroDim macro grid dimension (6)
+     * @param w00 bilinear weight for the (x0, z0) corner
+     * @param w10 bilinear weight for the (x0+1, z0) corner
+     * @param w01 bilinear weight for the (x0, z0+1) corner
+     * @param w11 bilinear weight for the (x0+1, z0+1) corner
+     */
     private void interpolateFieldVector(
         WorkerScratchpad scratchpad, double[] macroArr, double[] targetArr, int targetOffset,
         int z0, int macroDim, DoubleVector w00, DoubleVector w10, DoubleVector w01, DoubleVector w11
@@ -126,6 +183,16 @@ public final class VectorFieldKernel implements FieldKernel {
         result.intoArray(targetArr, targetOffset);
     }
 
+    /**
+     * Vectorizes the canonical density column D = H_f − (y + W) − C
+     * (TECHSPEC §49, §64).
+     *
+     * @param scratchpad worker scratchpad (lane work arrays)
+     * @param worldX world X of the column
+     * @param sectionMinY minimum Y of the 16-block section
+     * @param worldZ world Z of the column
+     * @param outDensities destination density array for the section
+     */
     public void evaluateDensityColumnVector(
         WorkerScratchpad scratchpad, int worldX, int sectionMinY, int worldZ, float[] outDensities
     ) {
@@ -161,21 +228,48 @@ public final class VectorFieldKernel implements FieldKernel {
         }
     }
 
+    /**
+     * @return the shared landform classifier (Scalar authority)
+     */
     @Override
     public com.omms.geoenginecore.geomorphology.LandformClassifier getLandformClassifier() {
         return fallbackKernel.getLandformClassifier();
     }
 
+    /**
+     * Single-voxel density; delegates to the Scalar authority.
+     *
+     * @param scratchpad worker scratchpad
+     * @param worldX world X of the voxel
+     * @param worldY world Y of the voxel
+     * @param worldZ world Z of the voxel
+     * @return canonical voxel density
+     */
     @Override
     public float evaluateDensity(WorkerScratchpad scratchpad, int worldX, int worldY, int worldZ) {
         return fallbackKernel.evaluateDensity(scratchpad, worldX, worldY, worldZ);
     }
 
+    /**
+     * Full pipeline sample for a column; delegates to the Scalar
+     * authority.
+     *
+     * @param wx world-space X of the column
+     * @param wz world-space Z of the column
+     * @param sample sample to fill
+     */
     @Override
     public void evaluateFullColumn(double wx, double wz, GeoSample sample) {
         fallbackKernel.evaluateFullColumn(wx, wz, sample);
     }
 
+    /**
+     * @return the shared cave field (Scalar authority)
+     */
     @Override public CaveField getCaveField() { return fallbackKernel.getCaveField(); }
+
+    /**
+     * @return the shared warp field (Scalar authority)
+     */
     @Override public WarpField getWarpField() { return fallbackKernel.getWarpField(); }
 }

@@ -1,8 +1,37 @@
 package com.omms.geoenginecore.math;
 
+/**
+ * Maps unit-range {@link NormalizedGeoParams} sliders onto concrete
+ * {@link GeoConfig} values (TECHSPEC §63).
+ *
+ * <p>Every parameter is derived from a documented, bounded linear
+ * sweep so that user-facing 0..1 sliders can never produce an invalid
+ * configuration. The stress amplitude is additionally clamped so the
+ * Jacobian bound of 0.45 is never exceeded (TECHSPEC §16).
+ */
 public final class GeoConfigNormalizer {
+    /** Hides the implicit constructor. This is a static utility class. */
     private GeoConfigNormalizer() {}
 
+    /**
+     * Converts normalized 0..1 parameters into a validated
+     * {@link GeoConfig}.
+     *
+     * <p>Wavelength sweeps: continental 2000-8000 m, mountain belts
+     * 800-2500 m, foothills 400-1200 m. Amplitude sweeps: continental
+     * base ±35-85 m, primary relief 180-1400 m, secondary ridges
+     * 30-250 m. The returned instance is guaranteed to pass
+     * {@link GeoConfig} validation.
+     *
+     * @param version generator version stored in the configuration
+     * @param dimensionId dimension identity for seed-domain separation
+     * @param worldMinY inclusive lowest buildable Y of the dimension
+     * @param worldMaxY exclusive upper Y bound of the dimension
+     * @param seaLevel sea/fluid level of the dimension
+     * @param p normalized 0..1 parameter set
+     * @return validated GeoConfig built from the normalized parameters
+     * @throws IllegalArgumentException if the vertical bounds are inconsistent
+     */
     public static GeoConfig toGeoConfig(
         int version, int dimensionId, int worldMinY, int worldMaxY, int seaLevel,
         NormalizedGeoParams p
