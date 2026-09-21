@@ -97,17 +97,34 @@ public final class DrainageRouter {
         long key = HydrologyRegionCache.packScopedKey(worldSeed, configHash, rx, rz);
         WorkerScratchpad sp = ScratchpadProvider.get();
 
-        // Fast-path: thread-local scratchpad register (0 allocations, 0 map lookups on interior columns)
-        if (sp.cachedHydrologyRegionKey == key && sp.cachedHydrologyGraph != null) {
-            return sp.cachedHydrologyGraph;
+        // Fast path: the worker's direct-mapped register - a pure
+        // array read: zero allocations, zero map lookups, no locks
+        // (TECHSPEC §62, §65). The key is already avalanche-mixed, so
+        // its low bits select the home slot; the register holds the
+        // worker's few most-recent regions, so a blended seam column
+        // (primary + one neighbor) is fully resident. Slots are
+        // examined graph-first, which stays correct under any store
+        // interleaving; the probe ends at an empty slot.
+        final int slots = WorkerScratchpad.HYDROLOGY_REGISTER_SLOTS;
+        int home = (int) (key & (slots - 1));
+        for (int probe = 0; probe < slots; probe++) {
+            int s = (home + probe) & (slots - 1);
+            if (sp.hydrologyGraphs[s] != null && sp.hydrologyRegionKeys[s] == key) {
+                return sp.hydrologyGraphs[s];
+            }
         }
 
+        // Slow path (first use on this worker): resolve through the
+        // shared bounded cache (TECHSPEC §65-§66), then pin the result
+        // into the register, displacing whatever occupied its home
+        // slot. A displaced region re-resolves through the shared
+        // cache without a rebuild.
         int originX = rx * REGION_SPAN;
         int originZ = rz * REGION_SPAN;
         DrainageGraph graph = regionCache.getOrCompute(worldSeed, configHash, rx, rz, kernel, originX, originZ);
 
-        sp.cachedHydrologyRegionKey = key;
-        sp.cachedHydrologyGraph = graph;
+        sp.hydrologyRegionKeys[home] = key;
+        sp.hydrologyGraphs[home] = graph;
         return graph;
     }
 

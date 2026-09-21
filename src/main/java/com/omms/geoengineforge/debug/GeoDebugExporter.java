@@ -181,7 +181,11 @@ public final class GeoDebugExporter {
             double hf = sample.finalSurface;
 
             for (int y = minY; y < maxY; y++) {
-                int imgY = (maxY - 1) - (y - minY);
+                // Flip world-Y (floor at worldMinY) into image rows; the
+                // offset must be the rendered height (maxY - minY), not
+                // maxY - 1, or columns below a negative floor index into
+                // negative rows (TECHSPEC §154).
+                int imgY = (height - 1) - (y - minY);
 
                 float density = kernel.evaluateDensity(sp, wx, y, worldZ);
                 double cave = kernel.getCaveField().evaluateCave(wx, y, worldZ, hf);

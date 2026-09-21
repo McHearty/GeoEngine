@@ -71,17 +71,43 @@ public record GeoConfig(
     /**
      * Validates the configuration (TECHSPEC §64).
      *
-     * <p>Rejects inverted vertical bounds, out-of-range sea level,
-     * non-positive frequencies, negative amplitudes, uplift exponents
-     * below 1, stress warps exceeding their Jacobian bound, and
-     * inconsistent climate or river bounds. Any failure throws before
-     * a configuration instance can exist.
+     * <p>Rejects non-finite floating point values (NaN and ±Infinity),
+     * inverted vertical bounds, out-of-range sea level, non-positive
+     * wavelengths, negative amplitudes, uplift exponents below 1,
+     * stress warps exceeding their Jacobian bound, inverted cave
+     * envelopes, cave envelopes outside world bounds, and inconsistent
+     * climate or river bounds. Any failure throws before a
+     * configuration instance can exist.
      *
      * @throws IllegalArgumentException if any invariant is violated
      */
     public GeoConfig {
+        // §64: reject non-finite values up front. NaN compares false
+        // against every relational check below, so it must be caught
+        // explicitly or it would slip through the constructor.
+        if (isNonFinite(tectonicFreqLow) || isNonFinite(tectonicFreqA) || isNonFinite(tectonicFreqB)
+                || isNonFinite(tectonicAmpLow) || isNonFinite(tectonicAmpA) || isNonFinite(tectonicAmpB)
+                || isNonFinite(upliftExponent)
+                || isNonFinite(stressFrequency) || isNonFinite(stressAmplitude)
+                || isNonFinite(stressMaxJacobian) || isNonFinite(epochFrequency)
+                || isNonFinite(climateTempFrequency) || isNonFinite(climateHumidFrequency)
+                || isNonFinite(climateMin) || isNonFinite(climateMax)
+                || isNonFinite(lapseRatePerBlock) || isNonFinite(baseErosionRate)
+                || isNonFinite(maxWarpAmplitude)
+                || isNonFinite(riverMaxIncision) || isNonFinite(riverChannelSteepness)) {
+            throw new IllegalArgumentException("Configuration contains non-finite values");
+        }
         if (worldMinY >= worldMaxY) {
             throw new IllegalArgumentException("worldMinY must be strictly less than worldMaxY");
+        }
+        // §64: the cave placement envelope must be ordered (a degenerate
+        // zero-height envelope means "no caves" and is legal) and must
+        // lie inside the world vertical bounds.
+        if (caveMinY > caveMaxY) {
+            throw new IllegalArgumentException("Cave envelope inverted: caveMinY " + caveMinY + " > caveMaxY " + caveMaxY);
+        }
+        if (caveMaxY > worldMaxY || caveMinY < worldMinY) {
+            throw new IllegalArgumentException("Cave envelope [" + caveMinY + ", " + caveMaxY + "] outside world bounds [" + worldMinY + ", " + worldMaxY + "]");
         }
         if (seaLevel < worldMinY || seaLevel > worldMaxY) {
             throw new IllegalArgumentException("seaLevel out of world bounds");
@@ -102,11 +128,23 @@ public record GeoConfig(
         if (maxJac > stressMaxJacobian) {
             throw new IllegalArgumentException("Stress warp exceeds Jacobian bound: " + maxJac + " > " + stressMaxJacobian);
         }
+        if (epochFrequency <= 0.0) {
+            throw new IllegalArgumentException("epochFrequency must be positive");
+        }
+        if (climateTempFrequency <= 0.0 || climateHumidFrequency <= 0.0) {
+            throw new IllegalArgumentException("Climate frequencies must be positive");
+        }
         if (climateMin < 0.0 || climateMax < climateMin) {
             throw new IllegalArgumentException("Invalid climate bounds: 0 <= climateMin <= climateMax");
         }
         if (baseErosionRate < 0.0) {
             throw new IllegalArgumentException("Erosion rate cannot be negative");
+        }
+        if (lapseRatePerBlock < 0.0) {
+            throw new IllegalArgumentException("lapseRatePerBlock cannot be negative");
+        }
+        if (maxWarpAmplitude < 0.0) {
+            throw new IllegalArgumentException("maxWarpAmplitude cannot be negative");
         }
         if (surfaceBandRadius <= 0) {
             throw new IllegalArgumentException("surfaceBandRadius must be positive");
@@ -177,5 +215,13 @@ public record GeoConfig(
             -40,                // caveMinY
             128                 // caveMaxY
         );
+    }
+
+    /**
+     * @param value configuration component to check
+     * @return true if the value is NaN or infinite
+     */
+    private static boolean isNonFinite(double value) {
+        return Double.isNaN(value) || Double.isInfinite(value);
     }
 }

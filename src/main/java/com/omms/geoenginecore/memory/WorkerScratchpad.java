@@ -3,6 +3,8 @@ package com.omms.geoenginecore.memory;
 import com.omms.geoenginecore.geomorphology.MultiScaleRelief;
 import com.omms.geoenginecore.math.GeoSample;
 
+import java.util.Arrays;
+
 /**
  * Worker-owned scratchpad of reusable primitive buffers (TECHSPEC §73).
  *
@@ -107,13 +109,33 @@ public final class WorkerScratchpad {
     /** SIMD scratch: per-lane density results. */
     public final double[] simdResults = new double[MAX_SIMD_LANES];
 
-    /** Region key of the currently cached drainage graph; Long.MIN_VALUE means empty. */
-    public long cachedHydrologyRegionKey = Long.MIN_VALUE;
-    /** Drainage graph for the currently cached hydrology region. */
-    public com.omms.geoenginecore.hydrology.DrainageGraph cachedHydrologyGraph = null;
+    /**
+     * Slots in the worker's direct-mapped hydrology register.
+     *
+     * <p>A seam-blended column needs the primary drainage region plus
+     * one neighbor region, so the register holds the worker's few
+     * most-recent regions (TECHSPEC §65) and a steady-state column
+     * lookup is a pure array read - zero allocations and no locks
+     * (TECHSPEC §62). A displaced region re-resolves through the
+     * shared, bounded {@link com.omms.geoenginecore.memory.HydrologyRegionCache}.
+     */
+    public static final int HYDROLOGY_REGISTER_SLOTS = 4;
+
+    /**
+     * Direct-mapped drainage-region keys; {@code Long.MIN_VALUE} marks
+     * an empty slot. Filled once in the constructor; owned by a single
+     * worker thread (TECHSPEC §74).
+     */
+    public final long[] hydrologyRegionKeys = new long[HYDROLOGY_REGISTER_SLOTS];
+
+    /** Drainage graphs backing {@link #hydrologyRegionKeys}; null in empty slots. */
+    public final com.omms.geoenginecore.hydrology.DrainageGraph[] hydrologyGraphs =
+        new com.omms.geoenginecore.hydrology.DrainageGraph[HYDROLOGY_REGISTER_SLOTS];
 
     /** Allocates every reusable buffer once; the instance is then owned by a single worker thread (TECHSPEC §74). */
-    public WorkerScratchpad() {}
+    public WorkerScratchpad() {
+        Arrays.fill(hydrologyRegionKeys, Long.MIN_VALUE);
+    }
 
     /**
      * Rebuilds the worker's {@link GeoSample} from the per-column chunk

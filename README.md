@@ -52,8 +52,17 @@ The codebase enforces a strict dependency inversion between the pure mathematica
 
 ## 2. Current Implementation Status
 
-* **Phases 1–9**: SEALED — full headless suite green (12 test classes, 30 tests, 0 failures, 0 skipped).
-* **Last verified**: 2026-09-21 @ `7c7c1eb` ("Documentation Pass") — forced full re-run (`./gradlew test --rerun-tasks`): **30/30 passed**, all headless.
+* **Phases 1–9**: SEALED & CONFORMANCE-VERIFIED — full headless suite green (19 test classes, 70 tests, 0 failures, 0 skipped).
+* **Last verified**: 2026-09-21 — forced full re-run (`./gradlew test --rerun-tasks`) after the Phase 1 conformance re-pass: **70/70 passed**, all headless (19 suites; matrix in §6, benchmark record in `docs/BENCHMARKS.md`).
+* **Phase 1 conformance re-pass (lands with this update)**: re-audited all eight Phase 1 acceptance criteria against TECHSPEC §§220–230; suite extended 12 classes / 30 tests → 19 classes / 70 tests (seven new suites). Defects found and fixed:
+  1. `DerivativeSampler` central-difference factor-of-2 error — dead code, now the standalone §37 reference pinned by `Phase1DerivativeStencilTest` (the kernel keeps its inline stencils).
+  2. `GeoConfig` accepted NaN/±Infinity and malformed cave envelopes — §64 validation now rejects non-finite components, non-positive frequencies, negative lapse rates, and inverted/out-of-bounds cave envelopes.
+  3. `LandformClassifier` held shared mutable solver scratch (`CurvatureResult`/`ReliefReport`), breaking 16-thread determinism — now ThreadLocal-confined per §66; `MultiSeedMultiThreadMatrixTest` compares the entire scratchpad (28 double + 3 int grids) bit-exactly across 16 threads × 5 seeds.
+  4. §62 zero steady-state allocation violated — 12,288 B/chunk from `Long` autoboxing in `ConcurrentHashMap<Long, DrainageGraph>` lookups (the single-slot thread register missed on every blended seam column). Fixed: striped primitive-`long`-keyed open-addressing cache (lock-free hit path) + 4-slot direct-mapped register in the thread-confined `WorkerScratchpad`. Steady state is now **0 bytes/chunk**.
+  5. `GeoDebugExporter.exportVerticalSlicePng` flip indexed `worldMinY`-offset rows, going negative for `worldMinY = -64` — now flips on image height (TECHSPEC §154).
+  6. Terminal landform fallback resolved to `PLAINS` (the grammar's documented catch-all; residual Tier-4 convex cases now resolve to `MOUNTAIN`); `UNKNOWN` (id 0) remains a defensive sentinel for corrupted bits, capped at 5% in the finiteness sweep as a regression guard.
+  7. Chunk-seam test corrected: continuity is asserted on warp *displacements* (coordinates include the 1.0-block identity offset), against the rigorous 0.144/block `GeoNoise` Lipschitz bound (2× margin).
+  Benchmark floor re-baselined 200 → 600 chunks/sec (measured 1,253.7 on the reference machine, 2.09× headroom).
 * **In flight — river system (WIP `8941d5a`, partially landed):**
   - *Landed*: re-tuned incision model (activation at $A_f > 1.8$; lowland slope baseline 0.65 keeps defined trunk-river beds; $R_{\max}$ scaled by local slope, §28); saturated corridor width $W(A_f)$ per §29 (Brooks ~3–5 blk → trunk ~16–28 blk; zero below the $A_f = 2.5$ channel-initiation threshold); parabolic U-trough cross-section factor; River / Frozen River biome handoff in `GeoBiomeSource` keyed on column incision depth.
   - *Not yet landed*:
@@ -62,14 +71,14 @@ The codebase enforces a strict dependency inversion between the pure mathematica
     3. **Meandering (§30) missing** — the legacy `getMeanderOffset` was removed during WIP; a bounded deterministic lateral meander has not been re-introduced, so centerlines are currently pure routing-lattice paths.
     4. **§31 river feature grammar partial** — confluence, delta, and alluvial-fan relationships exist; oxbow, point bar, cut bank, levee, floodplain, and crevasse splay are not yet derived from the drainage graph.
 * **Not started — Phase 10 (production hardening)**: multiplayer, dedicated server, client/server compatibility, world save/reload, long-distance travel, chunk regeneration, crash recovery, configuration migration. Note: `build.gradle` already configures a `gameTestServer` run and `neoforged.enabledGameTestNamespaces` — the scaffolding is in place, but no `@GameTest` classes are written yet.
-* **Open housekeeping**: Phase 1 acceptance criterion "benchmark results are recorded" is not yet durably satisfied — benchmark values live only in the §8 table and ephemeral `build/` test reports; commit a durable benchmark record (with collection metadata) when the river work lands.
+* **Open housekeeping**: none — the Phase 1 "benchmark results are recorded" criterion is durably satisfied in `docs/BENCHMARKS.md` (measured values + collection metadata, per §221).
 * **Planned work order** (keep this list current as work progresses):
   1. Wire $F_{\text{channel}}$ into the incision path (distance-to-centerline from the `DrainageGraph`); tests: thalweg $R$ > bank $R$ > 0 outside corridor; re-verify region-seam continuity.
   2. Compute a deterministic `waterSurfaceLevel` in core; plumb channel/water data into `GeoSurfaceRuleContext`; place `WATER` in carved channel columns below the water surface; tests: water only inside the corridor, deterministic across seeds and threads.
   3. Re-introduce bounded deterministic meandering (§30); tests: centerline stays within its valley, bounded by channel width, downhill-consistent, deterministic.
   4. In-game Phase 9 verification (structures, vegetation, and special features against real vanilla placement).
   5. Phase 10: `@GameTest` suites (client/server determinism, save/reload, long-distance travel, chunk regeneration, config migration) plus a dedicated-server smoke run.
-  6. Commit the durable benchmark record (open housekeeping item above).
+  6. ~~Commit the durable benchmark record~~ — done: `docs/BENCHMARKS.md` (open housekeeping item closed).
 
 ---
 
@@ -96,6 +105,8 @@ The codebase enforces a strict dependency inversion between the pure mathematica
 ├── settings.gradle
 ├── gradle/wrapper/gradle-wrapper.properties
 ├── TECHSPEC.md                     # Normative 233-section specification
+├── docs/
+│   └── BENCHMARKS.md               # recorded benchmark results (TECHSPEC §221)
 └── src/
     ├── main/
     │   ├── java/com/omms/
@@ -151,8 +162,8 @@ The codebase enforces a strict dependency inversion between the pure mathematica
     │               ├── dimension/          # vanilla dimension overrides
     │               └── worldgen/           # world presets (geoengine/normal) + normal.json
     └── test/
-        ├── java/com/omms/geoenginecore/test/    # 11 headless core suites (Phases 1–9 + cross-cutting)
-        └── java/com/omms/geoengineforge/test/   # Phase 4 simulated raster pipeline test
+        ├── java/com/omms/geoenginecore/test/    # 18 headless core suites (Phases 1–9 + conformance)
+        └── java/com/omms/geoengineforge/test/   # Phase 4 raster pipeline + Phase 1 field-export suites
 ```
 
 ---
@@ -185,7 +196,7 @@ build/libs/geoengine-1.0.0.jar
 
 All test suites are located in `src/test/java/` and execute **completely headless** without launching a Minecraft client, server, or graphical environment.
 
-**Suite status (2026-09-21 @ `7c7c1eb`): 12 classes, 30 tests, 0 failures, 0 skipped — all green.**
+**Suite status (2026-09-21, post conformance re-pass): 19 classes, 70 tests, 0 failures, 0 skipped — all green.**
 
 ### Running the Full Test Suite
 ```bash
@@ -210,12 +221,19 @@ All test suites are located in `src/test/java/` and execute **completely headles
 | `MultiSeedMultiThreadMatrixTest` | 1 | Concurrent stress test across 5 distinct 64-bit seeds under an 8-thread pool, asserting bit-identical output arrays (§8, §156). |
 | `InterRegionHydrologyContinuityTest` | 1 | Cross-seam evaluation asserting continuous D8 flow accumulation across the 256-block region boundary ($X = 255 \leftrightarrow X = 256$, |Δ$A_f$| < 0.15) via the 4-cell halo of the 24×24 routing lattice (§26, §136). |
 | `NormalizedGeoConfigTest` | 1 | Configuration validation (Phase 1 acceptance, §64): extreme input sweeps over [0.0, 1.0] strictly produce valid, finite `GeoConfig` instances. |
-| *Total* | **30** | *All green as of the last verified run (§2).* |
+| `Phase1DerivativeStencilTest` | 8 | §37 on the standalone `DerivativeSampler` reference: central-difference gradients at 2Δ spacing and the exact 5-point Laplacian, incl. non-uniform step handling and `step > 0` guards. |
+| `Phase1ConfigValidationTest` | 21 | §64 compact-constructor validation matrix: NaN/±Infinity rejection (NaN compares false to every relational check), positive frequency/wavelength guards, non-negative lapse rate and warp amplitude, cave envelope within world bounds; plus config-hash stability across equivalent instances. |
+| `Phase1ChunkSeamContinuityTest` | 2 | §136: field continuity across the 16×16 chunk boundary (|Δ| ≤ 0.01), warp *displacement* continuity ≤ 0.3 (2× the rigorous 0.144/block `GeoNoise` Lipschitz bound; coordinates include the 1.0-block identity offset), sample internal consistency (`warped = world + W`), landform ids valid (0 or 1–20). |
+| `Phase1FinitenessSweepTest` | 3 | §153/§154: every scratchpad grid finite and in-domain across dimensions, seeds, and positions; section-classification invariants (`AIR`/`SOLID`/`BAND`); landform ids within the 21-type taxonomy; `UNKNOWN` proportion capped at 5% as a grammar-regression guard. |
+| `CorePurityGuardTest` | 1 | §7: source-tree walk — no `net.minecraft`/`com.mojang`/`net.neoforged` imports anywhere in `com.omms.geoenginecore`. |
+| `Phase1BenchmarkTest` | 1 | §221: steady-state rasterized-chunk throughput after 512-chunk JIT warmup, floored at 600 chunks/sec (re-baselined from 200); measured values recorded in `docs/BENCHMARKS.md`. |
+| `Phase1FieldExportTest` (forge) | 4 | §153/§154 field exports: 23-column CSV (21 numeric fields + `landformId` + `landformName`), 48-block heightmap PNG at radius 1, 48×576 vertical-slice PNG with correct Y flip for negative `worldMinY`, point-query round-trip. |
+| *Total* | **70** | *All green as of the last verified run (§2).* |
 
 Coverage notes:
 
-* Phase 1 acceptance criterion "deterministic tests pass" is met by `MultiSeedMultiThreadMatrixTest`; "configuration validation works" by `NormalizedGeoConfigTest` and the first `Phase1CoreVerificationTest` case.
-* Phase 1 acceptance criterion "benchmark results are recorded" is an open item — see §2 (open housekeeping) and §8.
+* Phase 1 acceptance criterion "deterministic tests pass" is met by `MultiSeedMultiThreadMatrixTest` (full-scratchpad bit-exact comparison, 16 threads × 5 seeds, plus a stateless-kernel re-check); "configuration validation works" by `NormalizedGeoConfigTest`, `Phase1ConfigValidationTest`, and the first `Phase1CoreVerificationTest` case.
+* Phase 1 acceptance criterion "benchmark results are recorded" is satisfied by `Phase1BenchmarkTest` (committed floor) and the durable record in `docs/BENCHMARKS.md` — the §2 open housekeeping item is closed.
 
 ---
 
@@ -288,14 +306,15 @@ GeoEngine provides operator commands for live diagnostics (full set in `GeoDebug
 
 ## 8. Performance & Operational Benchmarks
 
-Empirical metrics collected from the automated test suites on Java 21 (x86_64, AVX2 enabled) during the Phase 8 sealing run. Values are machine- and JVM-dependent — **re-run the suite and re-record this table after any change to the mathematical core**, and commit the durable record when the river work lands (§2).
+Empirical metrics collected from the automated test suites on Java 21 (x86_64, AVX2 enabled) during the Phase 8 sealing run, re-verified on the Phase 1 conformance re-pass (2026-09-21; durable record in `docs/BENCHMARKS.md`). Values are machine- and JVM-dependent — **re-run the suite and re-record after any change to the mathematical core**.
 
 * **Section Classification Fast-Path Ratio (§179):**
   - `AIR` sections (stratosphere bulk-fill): **$65.6\%$** (84/128 sections)
   - `SOLID` sections (deep crust bulk-fill): **$22.7\%$** (29/128 sections)
   - `BAND` sections (voxel density loop): **$11.7\%$** (15/128 sections)
   - *Result: $>88\%$ of vertical sections bypass voxel-level evaluation.*
-* **Inner Loop Allocation Rate (§62):** **`0 bytes/chunk`** — verified zero additional allocation in the hot surface and density loops after JIT warm-up.
+* **Inner Loop Allocation Rate (§62):** **`0 bytes/chunk`** — verified zero additional allocation in the hot surface and density loops after JIT warm-up; re-verified on the conformance re-pass (the pre-fix steady state was 12,288 B/chunk from `Long` boxing in hydrology lookups — see `docs/BENCHMARKS.md`).
+* **Rasterized Chunk Throughput (§221):** **1,253.7 chunks/sec** (committed floor 600, 2.09× headroom) on the reference machine (AMD Ryzen 9 5950X / Temurin 21) — see `docs/BENCHMARKS.md`.
 * **Vector/Scalar Numerical Tolerance (§71):** parity enforced at |$H_f^s - H_f^v$| ≤ 1e-5 — the SIMD `VectorFieldKernel` is numerically interchangeable with the scalar reference `ScalarFieldKernel` within that bound.
 * **Hydrological Cache Hit Latency (§80):** $O(1)$ amortized retrieval for within-region flow accumulation queries.
 

@@ -25,10 +25,20 @@ public final class LandformClassifier {
 
     /** Active validated configuration. */
     private final GeoConfig config;
-    /** Thread-confined Hessian result reuse (TECHSPEC §66). */
-    private final HessianSolver.CurvatureResult curvatureScratch = new HessianSolver.CurvatureResult();
-    /** Thread-confined multi-scale relief reuse (TECHSPEC §66). */
-    private final MultiScaleRelief.ReliefReport reliefScratch = new MultiScaleRelief.ReliefReport();
+
+    /**
+     * Per-thread Hessian result reuse (TECHSPEC §66). Backed by a
+     * ThreadLocal so a single classifier instance shared by several
+     * worker threads never shares mutable state between them; each
+     * thread's scratch is allocated once and reused for its life
+     * (TECHSPEC §62, §73).
+     */
+    private static final ThreadLocal<HessianSolver.CurvatureResult> CURVATURE_SCRATCH =
+        ThreadLocal.withInitial(HessianSolver.CurvatureResult::new);
+
+    /** Per-thread multi-scale relief reuse (TECHSPEC §66). */
+    private static final ThreadLocal<MultiScaleRelief.ReliefReport> RELIEF_SCRATCH =
+        ThreadLocal.withInitial(MultiScaleRelief.ReliefReport::new);
 
     /**
      * @param config validated configuration supplying the sea level
@@ -66,11 +76,13 @@ public final class LandformClassifier {
         double hNW, double hNE, double hSW, double hSE,
         double delta
     ) {
-        HessianSolver.solve(hC, hN, hS, hW, hE, hNW, hNE, hSW, hSE, delta, curvatureScratch);
-        double l1 = curvatureScratch.lambda1;
-        double l2 = curvatureScratch.lambda2;
+        HessianSolver.CurvatureResult curvature = CURVATURE_SCRATCH.get();
+        HessianSolver.solve(hC, hN, hS, hW, hE, hNW, hNE, hSW, hSE, delta, curvature);
+        double l1 = curvature.lambda1;
+        double l2 = curvature.lambda2;
 
-        MultiScaleRelief.evaluate(kernel, sample.worldX, sample.worldZ, hC, reliefScratch);
+        MultiScaleRelief.ReliefReport relief = RELIEF_SCRATCH.get();
+        MultiScaleRelief.evaluate(kernel, sample.worldX, sample.worldZ, hC, relief);
 
         double slope = sample.gradMagnitude;
         double altitude = sample.finalSurface;
@@ -100,7 +112,7 @@ public final class LandformClassifier {
             bits |= LandformBits.ENV_ALPINE;
         }
 
-        LandformType resolvedType = resolveLandform(sample, l1, l2, slope, altitude, seaLevel, reliefScratch, bits);
+        LandformType resolvedType = resolveLandform(sample, l1, l2, slope, altitude, seaLevel, relief, bits);
         bits = LandformBits.setType(bits, resolvedType);
 
         if (LandformBits.hasProcess(bits, LandformBits.PROCESS_FLUVIAL) && altitude >= seaLevel - 2.0) {
@@ -193,6 +205,10 @@ public final class LandformClassifier {
             if (relief.mesoProminence > 12.0 && slope < 0.35) {
                 return LandformType.HILL;
             }
+            // Residual Tier-4 column: positive regional/altitudinal
+            // relief without a decisive curvature signature - a convex
+            // positive landform, so MOUNTAIN.
+            return LandformType.MOUNTAIN;
         }
 
         if (LandformBits.hasProcess(processBits, LandformBits.PROCESS_AEOLIAN) && slope < 0.15) {
@@ -207,6 +223,10 @@ public final class LandformClassifier {
             return LandformType.SADDLE;
         }
 
-        return (slope < FLAT_SLOPE_THRESHOLD) ? LandformType.PLAINS : LandformType.UNKNOWN;
+        // Terminal fallback: PLAINS - the documented catch-all for
+        // finite columns the grammar does not resolve more
+        // specifically. UNKNOWN (id 0) is a defensive sentinel for
+        // corrupted classification bits, never a pipeline output.
+        return LandformType.PLAINS;
     }
 }
