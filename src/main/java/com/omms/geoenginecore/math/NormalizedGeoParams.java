@@ -26,16 +26,16 @@ public record NormalizedGeoParams(
      * @throws NullPointerException if any component is a boxed null
      */
     public NormalizedGeoParams {
-        continentalScale = Math.clamp(continentalScale, 0.0, 1.0);
-        mountainScale = Math.clamp(mountainScale, 0.0, 1.0);
-        mountainRelief = Math.clamp(mountainRelief, 0.0, 1.0);
-        ridgeRoughness = Math.clamp(ridgeRoughness, 0.0, 1.0);
-        valleyFlatness = Math.clamp(valleyFlatness, 0.0, 1.0);
-        stressShear = Math.clamp(stressShear, 0.0, 1.0);
-        erosionStrength = Math.clamp(erosionStrength, 0.0, 1.0);
-        riverIncisionDepth = Math.clamp(riverIncisionDepth, 0.0, 1.0);
-        riverIncisionRate = Math.clamp(riverIncisionRate, 0.0, 1.0);
-        cliffOverhangIntensity = Math.clamp(cliffOverhangIntensity, 0.0, 1.0);
+        continentalScale = GeoMath.clamp(continentalScale, 0.0, 1.0);
+        mountainScale = GeoMath.clamp(mountainScale, 0.0, 1.0);
+        mountainRelief = GeoMath.clamp(mountainRelief, 0.0, 1.0);
+        ridgeRoughness = GeoMath.clamp(ridgeRoughness, 0.0, 1.0);
+        valleyFlatness = GeoMath.clamp(valleyFlatness, 0.0, 1.0);
+        stressShear = GeoMath.clamp(stressShear, 0.0, 1.0);
+        erosionStrength = GeoMath.clamp(erosionStrength, 0.0, 1.0);
+        riverIncisionDepth = GeoMath.clamp(riverIncisionDepth, 0.0, 1.0);
+        riverIncisionRate = GeoMath.clamp(riverIncisionRate, 0.0, 1.0);
+        cliffOverhangIntensity = GeoMath.clamp(cliffOverhangIntensity, 0.0, 1.0);
     }
 
     /**

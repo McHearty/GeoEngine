@@ -1,6 +1,7 @@
 package com.omms.geoenginecore.hydrology;
 
 import com.omms.geoenginecore.math.ScalarFieldKernel;
+import com.omms.geoenginecore.math.GeoMath;
 
 import java.util.Arrays;
 
@@ -155,11 +156,11 @@ public final class DrainageGraph {
         int x0 = (int) Math.floor(cellX);
         int z0 = (int) Math.floor(cellZ);
 
-        x0 = Math.clamp(x0, 0, GRID_DIM - 2);
-        z0 = Math.clamp(z0, 0, GRID_DIM - 2);
+        x0 = GeoMath.clamp(x0, 0, GRID_DIM - 2);
+        z0 = GeoMath.clamp(z0, 0, GRID_DIM - 2);
 
-        double fx = Math.clamp(cellX - x0, 0.0, 1.0);
-        double fz = Math.clamp(cellZ - z0, 0.0, 1.0);
+        double fx = GeoMath.clamp(cellX - x0, 0.0, 1.0);
+        double fz = GeoMath.clamp(cellZ - z0, 0.0, 1.0);
 
         int idx00 = (z0 * GRID_DIM) + x0;
         int idx10 = idx00 + 1;
@@ -173,5 +174,27 @@ public final class DrainageGraph {
 
         // Saturating logarithmic transform for incision scaling
         return Math.log1p(Math.max(0.0, rawAcc));
+    }
+
+    /**
+     * World X of the lattice point of routing cell {@code cell}.
+     *
+     * @param cell routing cell index (z-major: gz * GRID_DIM + gx)
+     * @return world X of that lattice point in blocks
+     */
+    public double latticeX(int cell) {
+        // z-major index (gz * GRID_DIM + gx): x is the minor axis (mod),
+        // z is the major axis (div). Consistent with build()'s indexing.
+        return gridOriginX + ((cell % GRID_DIM) * (double) CELL_SIZE);
+    }
+
+    /**
+     * World Z of the lattice point of routing cell {@code cell}.
+     *
+     * @param cell routing cell index (z-major: gz * GRID_DIM + gx)
+     * @return world Z of that lattice point in blocks
+     */
+    public double latticeZ(int cell) {
+        return gridOriginZ + ((cell / GRID_DIM) * (double) CELL_SIZE);
     }
 }

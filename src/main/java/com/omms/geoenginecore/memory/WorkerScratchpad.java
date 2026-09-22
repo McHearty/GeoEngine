@@ -47,6 +47,8 @@ public final class WorkerScratchpad {
     public final double[] surfaceGrid = new double[CHUNK_SURFACE_SIZE];
     /** Pre-carve H₀ baseline per column. */
     public final double[] h0Grid = new double[CHUNK_SURFACE_SIZE];
+    /** Pre-fluvial surface H_pre per column (TECHSPEC §24). */
+    public final double[] hPreGrid = new double[CHUNK_SURFACE_SIZE];
     /** X component of ∇H per column (TECHSPEC §37). */
     public final double[] gradXGrid = new double[CHUNK_SURFACE_SIZE];
     /** Z component of ∇H per column (TECHSPEC §37). */

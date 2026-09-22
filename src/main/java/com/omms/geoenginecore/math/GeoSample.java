@@ -42,6 +42,8 @@ public final class GeoSample {
     public double erosionLowering;
     /** Pre-carve surface H₀ = T − E on which derivatives are evaluated (TECHSPEC §23). */
     public double surfaceH0;
+    /** Pre-fluvial surface H_pre = H₀ + process modifiers (TECHSPEC §24). */
+    public double hPre;
     /** Deterministic flow accumulation proxy A_f (TECHSPEC §27). */
     public double flowAccumulation;
     /** Bounded river incision R (TECHSPEC §28). */

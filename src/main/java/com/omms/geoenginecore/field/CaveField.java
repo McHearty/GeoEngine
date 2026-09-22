@@ -4,6 +4,7 @@ import com.omms.geoenginecore.math.GeoConfig;
 import com.omms.geoenginecore.noise.GeoNoise;
 import com.omms.geoenginecore.noise.NoiseDomain;
 import com.omms.geoenginecore.noise.SeedDerivation;
+import com.omms.geoenginecore.math.GeoMath;
 
 /**
  * Volumetric cave void field C (TECHSPEC §45-§48).
@@ -146,7 +147,7 @@ public final class CaveField {
      * @return 0 below edge0, 1 above edge1, smooth in between
      */
     private static double smoothStep(double edge0, double edge1, double x) {
-        double t = Math.clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+        double t = GeoMath.clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
         return t * t * (3.0 - (2.0 * t));
     }
 }

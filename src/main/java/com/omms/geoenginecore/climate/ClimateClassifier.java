@@ -1,6 +1,7 @@
 package com.omms.geoenginecore.climate;
 
 import com.omms.geoenginecore.math.GeoConfig;
+import com.omms.geoenginecore.math.GeoMath;
 
 /**
  * Effective-temperature adjustment and climate zone
@@ -35,7 +36,7 @@ public final class ClimateClassifier {
      */
     public double getEffectiveTemperature(double baseTemp, double worldY) {
         double altitudeAboveSea = Math.max(0.0, worldY - seaLevel);
-        return Math.clamp(baseTemp - (altitudeAboveSea * lapseRate), 0.0, 1.0);
+        return GeoMath.clamp(baseTemp - (altitudeAboveSea * lapseRate), 0.0, 1.0);
     }
 
     /**

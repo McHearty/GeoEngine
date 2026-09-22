@@ -13,14 +13,14 @@ math-core changes, and re-baseline the committed floor when the core
 | CPU | AMD Ryzen 9 5950X, 16 cores / 32 threads |
 | JVM | Eclipse Temurin 21.0.12.1 (Gradle-provisioned toolchain) |
 | SIMD | `jdk.incubator.vector` enabled via `--add-modules` (Gradle `test` task) |
-| Date | 2026-09-21 |
-| Baseline commit | `b84ad0f` (last code-verified commit); values measured on the Phase 1 conformance tree that supersedes it |
+| Date | 2026-09-22 |
+| Baseline commit | `14c5190` (last code-verified commit); values measured on the Phase 2 conformance tree that supersedes it |
 
-## Measured results (2026-09-21)
+## Measured results (2026-09-22)
 
 | Metric | Measured | Committed floor | Headroom |
 |---|---|---|---|
-| Rasterized chunk throughput (scalar kernel) | **1253.7 chunks/sec** | 600 chunks/sec | 2.09× |
+| Rasterized chunk throughput (scalar kernel) | **1091.5 chunks/sec** | 600 chunks/sec | 1.82× |
 | Steady-state heap allocation (rasterized chunk) | **0 bytes/chunk** | 0 bytes/chunk (hard invariant) | — |
 
 ## Measurement protocol
@@ -44,10 +44,16 @@ math-core changes, and re-baseline the committed floor when the core
 
 ## Notes
 
-- The committed floor (600) is ~2× below this machine's measured
+- The committed floor (600) is 1.82× below this machine's measured
   throughput, leaving headroom for slower CI hardware while still
   catching order-of-magnitude regressions. Throughput scales with
   CPU; re-measure and re-baseline if the math core changes.
+- Phase 2 conformance re-measurement (2026-09-22): the §28
+  F_channel centerline walk is now in the raster path, taking
+  steady-state throughput from 1,253.7 to 1,091.5 chunks/sec
+  (−13% vs the Phase 1 record). The walk is bounded (WALK_MARGIN
+  23 blocks) and allocation-free, so the 600-chunk/sec floor keeps
+  a 1.82× margin and the 0-bytes/chunk invariant is unchanged.
 - The pre-conformance steady-state allocation was 12,288 bytes/chunk
   (256 columns × 48 B): every flow-accumulation lookup re-boxed a
   `Long` key against a `ConcurrentHashMap<Long, DrainageGraph>`, and

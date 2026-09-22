@@ -4,6 +4,7 @@ import com.omms.geoenginecore.math.GeoConfig;
 import com.omms.geoenginecore.noise.GeoNoise;
 import com.omms.geoenginecore.noise.NoiseDomain;
 import com.omms.geoenginecore.noise.SeedDerivation;
+import com.omms.geoenginecore.math.GeoMath;
 
 /**
  * Volumetric 3-D rock warp W(x, y, z) (TECHSPEC §41-§44).
@@ -64,8 +65,8 @@ public final class WarpField {
      * @return warp displacement, bounded by the effective W_max
      */
     public double evaluateWarp(double x, double y, double z, double slope) {
-        double slopeFactor = Math.clamp(slope * 1.8, 0.05, 1.0);
-        double normY = Math.clamp((y - minY) / (maxY - minY), 0.0, 1.0);
+        double slopeFactor = GeoMath.clamp(slope * 1.8, 0.05, 1.0);
+        double normY = GeoMath.clamp((y - minY) / (maxY - minY), 0.0, 1.0);
         double altitudeDamping = 1.0 - Math.pow(normY, altitudeExponent);
 
         double n1 = noiseA.sample2D(x * 0.035, (z + y * 0.25) * 0.035);
@@ -74,7 +75,7 @@ public final class WarpField {
         double combinedNoise = (n1 + n2) / 1.5;
         double effectiveBound = maxWarp * slopeFactor * altitudeDamping;
 
-        return Math.clamp(combinedNoise * effectiveBound, -effectiveBound, effectiveBound);
+        return GeoMath.clamp(combinedNoise * effectiveBound, -effectiveBound, effectiveBound);
     }
 
     /**

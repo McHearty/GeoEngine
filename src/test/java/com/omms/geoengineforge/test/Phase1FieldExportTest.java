@@ -32,7 +32,7 @@ public class Phase1FieldExportTest {
 
     private static final String CSV_HEADER =
         "worldX,worldZ,rawTectonic,stressWarpX,stressWarpZ,warpedX,warpedZ," +
-        "age,temperature,humidity,climateMultiplier,erosionLowering,h0," +
+        "age,temperature,humidity,climateMultiplier,erosionLowering,h0,hPre," +
         "gradX,gradZ,slope,laplacian,flowAcc,riverIncision,deposition,finalSurface," +
         "landformId,landformName";
 
@@ -51,18 +51,18 @@ public class Phase1FieldExportTest {
 
         for (int i = 1; i < lines.size(); i++) {
             String[] cells = lines.get(i).split(",");
-            assertEquals(23, cells.length, "row " + i + " must have 23 columns");
-            for (int c = 0; c < 21; c++) {
+            assertEquals(24, cells.length, "row " + i + " must have 24 columns");
+            for (int c = 0; c < 22; c++) {
                 double value = Double.parseDouble(cells[c]);
                 assertTrue(Double.isFinite(value),
                     "row " + i + " column " + c + " (" + CSV_HEADER.split(",")[c] + ") must be finite");
             }
-            // 21 numeric fields, then landformId, then landformName.
-            int id = Integer.parseInt(cells[21]);
+            // 22 numeric fields, then landformId, then landformName.
+            int id = Integer.parseInt(cells[22]);
             // UNKNOWN (id 0) is the grammar's designed terminal sentinel.
             assertTrue(id == 0 || (id >= 1 && id <= 20),
                 "row " + i + " landform id " + id + " must be within the taxonomy");
-            assertEquals(LandformType.fromId(id).name(), cells[22],
+            assertEquals(LandformType.fromId(id).name(), cells[23],
                 "row " + i + " landformName must match its id");
         }
     }

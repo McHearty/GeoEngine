@@ -1,6 +1,7 @@
 package com.omms.geoenginecore.hydrology;
 
 import com.omms.geoenginecore.math.GeoConfig;
+import com.omms.geoenginecore.math.GeoMath;
 
 /**
  * Fluvial incision model R (TECHSPEC §25-§28).
@@ -28,18 +29,22 @@ public final class RiverField {
 
     /**
      * Evaluates channel incision depth R for a river thalweg
-     * (TECHSPEC §28).
+     * (TECHSPEC §28): R = min(F(A_f)·F_slope·F_climate·F_channel, R_max).
      *
      * <p>Lowlands (slope ≈ 0) keep a 0.65 baseline so defined channel
      * beds survive; the result is clamped to the slope-scaled
-     * maximum.
+     * maximum. F_channel is the thalweg-to-bank cosine-squared U
+     * profile (TECHSPEC §29) measured from the routing-lattice
+     * centerline, turning incision into a bounded corridor.
      *
      * @param flowAccumulation flow accumulation proxy A_f
      * @param slopeMagnitude |∇H₀|
      * @param climateMultiplier bounded climate multiplier K
+     * @param channelFactor bounded channel form factor F_channel ∈ [0, 1]
      * @return incision depth R in blocks, 0 when flow is below threshold
      */
-    public double computeIncision(double flowAccumulation, double slopeMagnitude, double climateMultiplier) {
+    public double computeIncision(double flowAccumulation, double slopeMagnitude,
+                                  double climateMultiplier, double channelFactor) {
         if (flowAccumulation <= 1.8) {
             return 0.0;
         }
@@ -47,9 +52,23 @@ public final class RiverField {
         double flowStrength = 1.0 - Math.exp(-(flowAccumulation - 1.8) * channelSteepness);
         // Lowlands (slope ≈ 0) maintain a baseline of 0.65 for defined channels
         double slopeFactor = 0.65 + Math.min(1.85, slopeMagnitude * 1.5);
-        double rBase = 16.0 * flowStrength * slopeFactor * climateMultiplier;
+        double rBase = 16.0 * flowStrength * slopeFactor * climateMultiplier * channelFactor;
         double rMax = maxIncisionDepth * Math.min(1.0, slopeFactor * 0.65);
 
-        return Math.clamp(rBase, 0.0, rMax);
+        return GeoMath.clamp(rBase, 0.0, rMax);
+    }
+
+    /**
+     * Flat-channel convenience overload (F_channel = 1.0) for lightweight
+     * consumers without access to the routing lattice. Production
+     * pipelines always use the four-argument form.
+     *
+     * @param flowAccumulation flow accumulation proxy A_f
+     * @param slopeMagnitude |∇H₀|
+     * @param climateMultiplier bounded climate multiplier K
+     * @return incision depth R in blocks, 0 when flow is below threshold
+     */
+    public double computeIncision(double flowAccumulation, double slopeMagnitude, double climateMultiplier) {
+        return computeIncision(flowAccumulation, slopeMagnitude, climateMultiplier, 1.0);
     }
 }

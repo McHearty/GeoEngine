@@ -1,4 +1,5 @@
 package com.omms.geoenginecore.hydrology;
+import com.omms.geoenginecore.math.GeoMath;
 
 /**
  * Equilibrium fluvial deposition S (TECHSPEC §33, §36).
@@ -37,11 +38,11 @@ public final class DepositionField {
         if (eTotal <= 0.0) return 0.0;
 
         double flatness = 1.0 / (1.0 + slopeMagnitude * 4.0);
-        double basinConcavity = Math.clamp(laplacian * 2.0, 0.0, 1.0);
-        double lowAltitudeFactor = Math.clamp(1.0 - (altitudeAboveSea / 150.0), 0.1, 1.0);
+        double basinConcavity = GeoMath.clamp(laplacian * 2.0, 0.0, 1.0);
+        double lowAltitudeFactor = GeoMath.clamp(1.0 - (altitudeAboveSea / 150.0), 0.1, 1.0);
         double ageFactor = 0.4 + 0.6 * age;
 
         double depositionRatio = flatness * (0.5 * basinConcavity + 0.5 * lowAltitudeFactor) * ageFactor;
-        return Math.clamp(eTotal * depositionRatio, 0.0, eTotal);
+        return GeoMath.clamp(eTotal * depositionRatio, 0.0, eTotal);
     }
 }

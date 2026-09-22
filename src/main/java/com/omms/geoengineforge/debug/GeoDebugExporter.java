@@ -56,7 +56,7 @@ public final class GeoDebugExporter {
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
             writer.write("worldX,worldZ,rawTectonic,stressWarpX,stressWarpZ,warpedX,warpedZ," +
-                         "age,temperature,humidity,climateMultiplier,erosionLowering,h0," +
+                         "age,temperature,humidity,climateMultiplier,erosionLowering,h0,hPre," +
                          "gradX,gradZ,slope,laplacian,flowAcc,riverIncision,deposition,finalSurface," +
                          "landformId,landformName\n");
 
@@ -68,11 +68,11 @@ public final class GeoDebugExporter {
 
                     writer.write(String.format(
                         "%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f," +
-                        "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f," +
+                        "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f," +
                         "%.4f,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f," +
                         "%d,%s\n",
                         x, z, sample.rawTectonic, sample.stressWarpX, sample.stressWarpZ, sample.warpedX, sample.warpedZ,
-                        sample.age, sample.temperature, sample.humidity, sample.climateMultiplier, sample.erosionLowering, sample.surfaceH0,
+                        sample.age, sample.temperature, sample.humidity, sample.climateMultiplier, sample.erosionLowering, sample.surfaceH0, sample.hPre,
                         sample.gradX, sample.gradZ, sample.gradMagnitude, sample.laplacian, sample.flowAccumulation, sample.riverIncision, sample.deposition, sample.finalSurface,
                         type.getId(), type.name()
                     ));

@@ -4,6 +4,7 @@ import com.omms.geoenginecore.math.GeoConfig;
 import com.omms.geoenginecore.noise.GeoNoise;
 import com.omms.geoenginecore.noise.NoiseDomain;
 import com.omms.geoenginecore.noise.SeedDerivation;
+import com.omms.geoenginecore.math.GeoMath;
 
 /**
  * Geological epoch (age) field (TECHSPEC §17).
@@ -41,6 +42,6 @@ public final class EpochField {
      */
     public double evaluateAge(double x, double z) {
         double raw = noise.sample2D(x * frequency, z * frequency);
-        return Math.clamp((raw + 1.0) * 0.5, 0.0, 1.0);
+        return GeoMath.clamp((raw + 1.0) * 0.5, 0.0, 1.0);
     }
 }

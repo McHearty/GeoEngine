@@ -44,16 +44,28 @@ public final class ChannelField {
      * @return profile factor in [0.0, 1.0]
      */
     public static double getChannelProfileFactor(double flowAcc, double distanceToCenterline) {
-        double width = getWidth(flowAcc);
-        if (width <= 0.0) return 0.0;
+        return corridorFactor(getWidth(flowAcc) * 0.5, distanceToCenterline);
+    }
 
-        double halfWidth = width * 0.5;
-        if (distanceToCenterline >= halfWidth) {
+    /**
+     * Cross-sectional profile factor F_channel in [0.0, 1.0] given the
+     * half-width directly (TECHSPEC §29). The thalweg is 1.0; the bed
+     * follows a cosine U-trough that decays smoothly to 0.0 at the
+     * banks and stays 0.0 beyond them. A non-positive half-width means
+     * no channel (unsaturated overland flow), where the factor is 0.0.
+     *
+     * @param halfWidth channel half-width in blocks
+     * @param distance perpendicular distance from the centerline in blocks
+     * @return profile factor in [0.0, 1.0]
+     */
+    public static double corridorFactor(double halfWidth, double distance) {
+        if (halfWidth <= 0.0) return 0.0;
+        if (distance >= halfWidth) {
             return 0.0; // Outside channel banks: untouched terrain
         }
 
-        // Parabolic / cosine U-trough channel bed
-        double norm = distanceToCenterline / halfWidth;
+        // Cosine U-trough channel bed
+        double norm = distance / halfWidth;
         double profile = Math.cos(norm * (Math.PI * 0.5));
         return profile * profile;
     }

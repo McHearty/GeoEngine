@@ -4,6 +4,7 @@ import com.omms.geoenginecore.math.ScalarFieldKernel;
 import com.omms.geoenginecore.memory.HydrologyRegionCache;
 import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
+import com.omms.geoenginecore.math.GeoMath;
 
 /**
  * Region-based A_f provider with seamless boundary blending.
@@ -134,5 +135,146 @@ public final class DrainageRouter {
      */
     public HydrologyRegionCache getRegionCache() {
         return regionCache;
+    }
+
+    /**
+     * Resolves the authoritative graph for one region through the
+     * public API: worker register fast path first, then the shared
+     * cache (TECHSPEC §65-§66). Production callers that need the graph
+     * object itself (centerline walks, conformance probes) use this.
+     *
+     * @param kernel H₀ kernel of the current configuration
+     * @param worldSeed world seed that roots every seed domain
+     * @param configHash fingerprint of the active configuration
+     * @param rx region index in X
+     * @param rz region index in Z
+     * @return the region's drainage graph
+     */
+    public DrainageGraph resolveGraph(ScalarFieldKernel kernel, long worldSeed, long configHash, int rx, int rz) {
+        return getGraph(kernel, worldSeed, configHash, rx, rz);
+    }
+
+    /**
+     * Lattice cell index of the column's deterministic routing cell:
+     * the cell whose 16×16-block footprint contains (wx, wz), z-major.
+     * Columns in the seam margin (up to one cell outside the 16×16
+     * core) clamp to the nearest core-edge halo cell, keeping the
+     * index in bounds without changing any interior column's routing.
+     *
+     * @param rx region index in X
+     * @param rz region index in Z
+     * @param wx world-space X of the column
+     * @param wz world-space Z of the column
+     * @return routing cell index in [0, TOTAL_CELLS)
+     */
+    public int cellIndexFor(int rx, int rz, double wx, double wz) {
+        int gx = (int) Math.floor((wx - (rx * REGION_SPAN)) / (double) DrainageGraph.CELL_SIZE);
+        int gz = (int) Math.floor((wz - (rz * REGION_SPAN)) / (double) DrainageGraph.CELL_SIZE);
+        gx = GeoMath.clamp(gx, 0, DrainageGraph.GRID_DIM - 1);
+        gz = GeoMath.clamp(gz, 0, DrainageGraph.GRID_DIM - 1);
+        return gz * DrainageGraph.GRID_DIM + gx;
+    }
+
+    /**
+     * Bounded channel form factor F_channel for one column
+     * (TECHSPEC §28, §29). The centerline is the downstream D8 path of
+     * the column's routed lattice cell; F_channel is the
+     * cosine-squared U profile of that distance: 1.0 on the centerline,
+     * decaying smoothly to 0.0 at the banks.
+     *
+     * <p>Below the channel-formation threshold (W ≤ 0) the column is
+     * unsaturated overland flow and the factor is 0.0, matching the
+     * public {@code ChannelField.getChannelProfileFactor} contract.
+     *
+     * <p>The walk starts at the routed cell and follows the receiver
+     * chain. It stops at the first vertex farther from the column than
+     * halfWidth + WALK_MARGIN; since every path segment is at most one
+     * cell hop (16√2 &lt; WALK_MARGIN blocks) long, the perpendicular
+     * approach of any unchecked later segment is bounded below by
+     * sqrt((halfWidth + C)² − C²) &gt; halfWidth, so no unexamined
+     * segment can raise the factor back above zero. The walk is
+     * allocation-free and terminates at the regional sink or the
+     * distance cutoff, whichever comes first.
+     *
+     * @param graph the column's primary-region routing lattice
+     * @param routedCell the column's routing cell (z-major index)
+     * @param flowAcc flow accumulation proxy A_f
+     * @param wx world-space X of the column
+     * @param wz world-space Z of the column
+     * @return F_channel ∈ [0, 1]
+     */
+    public double evaluateChannelFactor(DrainageGraph graph, int routedCell, double flowAcc, double wx, double wz) {
+        double width = ChannelField.getWidth(flowAcc);
+        if (width <= 0.0) {
+            return 0.0;
+        }
+        double halfWidth = width * 0.5;
+
+        double d0 = pointDistance(wx, wz, graph.latticeX(routedCell), graph.latticeZ(routedCell));
+        if (d0 > halfWidth + WALK_MARGIN) {
+            return 0.0;
+        }
+
+        double best = d0;
+        int cur = routedCell;
+        while (cur >= 0) {
+            int next = graph.receiverIndex[cur];
+            if (next < 0) {
+                break; // Regional sink: the path ends
+            }
+            best = Math.min(best, segmentDistance(
+                wx, wz, graph.latticeX(cur), graph.latticeZ(cur), graph.latticeX(next), graph.latticeZ(next)));
+            if (best < halfWidth
+                && pointDistance(wx, wz, graph.latticeX(next), graph.latticeZ(next)) > halfWidth + WALK_MARGIN) {
+                break;
+            }
+            cur = next;
+        }
+        return ChannelField.corridorFactor(halfWidth, best);
+    }
+
+    /** Strict bound on one D8 hop (16√2 ≈ 22.63 blocks), in blocks. */
+    private static final double WALK_MARGIN = 23.0;
+
+    /**
+     * Euclidean distance between two world-space points.
+     *
+     * @param wx X of the first point
+     * @param wz Z of the first point
+     * @param cx X of the second point
+     * @param cz Z of the second point
+     * @return distance in blocks
+     */
+    private static double pointDistance(double wx, double wz, double cx, double cz) {
+        double dx = wx - cx;
+        double dy = wz - cz;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    /**
+     * Distance from (wx, wz) to the line segment (ax, az)–(bx, by);
+     * the closest point is the clamped projection or an endpoint.
+     *
+     * @return perpendicular distance in blocks
+     */
+    private static double segmentDistance(double wx, double wz, double ax, double az, double bx, double by) {
+        double abx = bx - ax;
+        double aby = by - az;
+        double len2 = abx * abx + aby * aby;
+        if (len2 == 0.0) {
+            // Degenerate zero-length segment (defensive; the graph's
+            // strictly-downhill invariant makes this unreachable):
+            // distance to the segment is the distance to either endpoint.
+            return pointDistance(wx, wz, ax, az);
+        }
+        double t = ((wx - ax) * abx + (wz - az) * aby) / len2;
+        if (t < 0.0) {
+            t = 0.0;
+        } else if (t > 1.0) {
+            t = 1.0;
+        }
+        double dx = wx - (ax + t * abx);
+        double dy = wz - (az + t * aby);
+        return Math.sqrt(dx * dx + dy * dy);
     }
 }

@@ -4,6 +4,7 @@ import com.omms.geoenginecore.math.GeoConfig;
 import com.omms.geoenginecore.noise.GeoNoise;
 import com.omms.geoenginecore.noise.NoiseDomain;
 import com.omms.geoenginecore.noise.SeedDerivation;
+import com.omms.geoenginecore.math.GeoMath;
 
 /**
  * Aeolian dune modifier (TECHSPEC §110-§112).
@@ -88,7 +89,7 @@ public final class AeolianField {
             ? Math.sin((cycle / 0.75) * (Math.PI * 0.5))
             : Math.cos(((cycle - 0.75) / 0.25) * (Math.PI * 0.5));
 
-        double aridityFactor = Math.clamp((0.25 - humidity) / 0.25, 0.0, 1.0);
+        double aridityFactor = GeoMath.clamp((0.25 - humidity) / 0.25, 0.0, 1.0);
         return profile * maxDuneHeight * ((presence - 0.3) / 0.7) * aridityFactor;
     }
 }

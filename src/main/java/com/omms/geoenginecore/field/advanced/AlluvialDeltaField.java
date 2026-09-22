@@ -4,6 +4,7 @@ import com.omms.geoenginecore.math.GeoConfig;
 import com.omms.geoenginecore.noise.GeoNoise;
 import com.omms.geoenginecore.noise.NoiseDomain;
 import com.omms.geoenginecore.noise.SeedDerivation;
+import com.omms.geoenginecore.math.GeoMath;
 
 /**
  * Fluvial deposition modifier: alluvial fans and delta lobes
@@ -47,7 +48,7 @@ public final class AlluvialDeltaField {
         if (flowAcc < 1.2 || slope > 0.12 || laplacian <= 0.0) {
             return 0.0;
         }
-        double fanStrength = Math.clamp(laplacian * 4.0, 0.0, 1.0);
+        double fanStrength = GeoMath.clamp(laplacian * 4.0, 0.0, 1.0);
         double availableSediment = Math.min(18.0, sedimentBudget * 0.45);
         return availableSediment * fanStrength;
     }

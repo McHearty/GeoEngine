@@ -4,6 +4,7 @@ import com.omms.geoenginecore.geomorphology.LandformBits;
 import com.omms.geoenginecore.geomorphology.LandformType;
 import com.omms.geoenginecore.math.GeoConfig;
 import com.omms.geoenginecore.math.GeoSample;
+import com.omms.geoenginecore.math.GeoMath;
 
 /**
  * Player structure siting analysis (TECHSPEC §213-§214).
@@ -58,7 +59,7 @@ public final class StructureSuitabilityField {
         double flatness = 1.0 / (1.0 + (slope * 8.0));
         out.isCliffEdge = slope > 0.28;
 
-        double curvaturePenalty = Math.clamp(laplacian * 4.0, 0.0, 1.0);
+        double curvaturePenalty = GeoMath.clamp(laplacian * 4.0, 0.0, 1.0);
         double curvatureFactor = 1.0 - curvaturePenalty;
 
         out.isCaveBreachRisk = measuredCaveVoidAtFoundation > 1.2;

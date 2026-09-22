@@ -180,7 +180,7 @@ public final class ScalarFieldKernel implements FieldKernel {
         }
 
         if (profile.hasGlacialProcesses()) {
-            double gInt = Math.clamp((h0 - (config.seaLevel() + 200.0)) / 150.0, 0.0, 1.0);
+            double gInt = GeoMath.clamp((h0 - (config.seaLevel() + 200.0)) / 150.0, 0.0, 1.0);
             hPre += glacialField.evaluateUValleyModification(wx, wz, h0, slope, temp, gInt);
             hPre += glacialField.evaluateCirqueBowl(wx, wz, h0, temp);
         }
@@ -269,25 +269,49 @@ public final class ScalarFieldKernel implements FieldKernel {
         sample.gradMagnitude = Math.sqrt(sample.gradX * sample.gradX + sample.gradZ * sample.gradZ);
         sample.laplacian = (hPreN + hPreS + hPreW + hPreE - 4.0 * hPre) / (delta * delta);
 
-        // Fluvial Incision
+        // Fluvial Incision (TECHSPEC §28): R = F(A_f)·F_slope·F_climate·F_channel,
+        // clamped to R_max.
         double flowAcc = 0.0;
         double incision = 0.0;
         if (profile.hasFluvialHydrology()) {
+            int regionX = (int) Math.floor(wx / (double) DrainageRouter.REGION_SPAN);
+            int regionZ = (int) Math.floor(wz / (double) DrainageRouter.REGION_SPAN);
+            DrainageGraph graph = drainageRouter.resolveGraph(this, worldSeed, config.configHash(), regionX, regionZ);
             flowAcc = evaluateFullFlowAccumulation(wx, wz);
-            incision = riverField.computeIncision(flowAcc, sample.gradMagnitude, sample.climateMultiplier);
+            incision = riverField.computeIncision(flowAcc, sample.gradMagnitude, sample.climateMultiplier,
+                drainageRouter.evaluateChannelFactor(graph,
+                    drainageRouter.cellIndexFor(regionX, regionZ, wx, wz), flowAcc, wx, wz));
         }
         sample.flowAccumulation = flowAcc;
         sample.riverIncision = incision;
+        sample.hPre = hPre;
         double hStar = hPre - incision;
 
         double deposition = 0.0;
         if (profile.hasFluvialHydrology()) {
-            deposition = DepositionField.computeDeposition(
-                sample.erosionLowering, incision, sample.gradMagnitude,
-                sample.laplacian, hStar - config.seaLevel(), sample.age
+            // Mass-budget cascade (TECHSPEC §32, §33): every deposition
+            // component draws from the remaining budget E_total = E + R,
+            // so the total never exceeds the removal budget.
+            double eTotal = sample.erosionLowering + incision;
+            double residual = eTotal;
+
+            double sFluvial = Math.min(
+                DepositionField.computeDeposition(
+                    sample.erosionLowering, incision, sample.gradMagnitude,
+                    sample.laplacian, hStar - config.seaLevel(), sample.age
+                ),
+                residual
             );
-            deposition += deltaField.evaluateAlluvialFan(flowAcc, sample.gradMagnitude, sample.laplacian, sample.erosionLowering);
-            deposition += deltaField.evaluateDeltaLobe(wx, wz, hStar, flowAcc, incision);
+            residual -= sFluvial;
+
+            double sFan = Math.min(
+                deltaField.evaluateAlluvialFan(flowAcc, sample.gradMagnitude, sample.laplacian, eTotal),
+                residual
+            );
+            residual -= sFan;
+
+            deposition = sFluvial + sFan
+                + Math.min(deltaField.evaluateDeltaLobe(wx, wz, hStar, flowAcc, incision), residual);
         }
         sample.deposition = deposition;
 
@@ -508,17 +532,38 @@ public final class ScalarFieldKernel implements FieldKernel {
                 double incision = 0.0;
 
                 if (profile.hasFluvialHydrology()) {
+                    int regionX = (int) Math.floor(wx / (double) DrainageRouter.REGION_SPAN);
+                    int regionZ = (int) Math.floor(wz / (double) DrainageRouter.REGION_SPAN);
+                    DrainageGraph graph = drainageRouter.resolveGraph(this, worldSeed, config.configHash(), regionX, regionZ);
                     flowAcc = evaluateFullFlowAccumulation(wx, wz);
-                    incision = riverField.computeIncision(flowAcc, slope, climateMult);
+                    // §28: R = F(A_f)·F_slope·F_climate·F_channel. F_channel
+                    // is measured from the routing-lattice centerline (§29).
+                    incision = riverField.computeIncision(flowAcc, slope, climateMult,
+                        drainageRouter.evaluateChannelFactor(graph,
+                            drainageRouter.cellIndexFor(regionX, regionZ, wx, wz), flowAcc, wx, wz));
                 }
 
                 double hStar = hPre - incision;
 
                 double deposition = 0.0;
                 if (profile.hasFluvialHydrology()) {
-                    deposition = DepositionField.computeDeposition(localErosion, incision, slope, lap, hStar - config.seaLevel(), localAge);
-                    deposition += deltaField.evaluateAlluvialFan(flowAcc, slope, lap, localErosion);
-                    deposition += deltaField.evaluateDeltaLobe(wx, wz, hStar, flowAcc, incision);
+                    // Mass-budget cascade (TECHSPEC §32, §33): every
+                    // deposition component draws from the remaining
+                    // budget E_total = E + R, so the total never exceeds
+                    // the removal budget.
+                    double eTotal = localErosion + incision;
+                    double residual = eTotal;
+
+                    double sFluvial = Math.min(
+                        DepositionField.computeDeposition(localErosion, incision, slope, lap, hStar - config.seaLevel(), localAge),
+                        residual);
+                    residual -= sFluvial;
+
+                    double sFan = Math.min(deltaField.evaluateAlluvialFan(flowAcc, slope, lap, eTotal), residual);
+                    residual -= sFan;
+
+                    deposition = sFluvial + sFan
+                        + Math.min(deltaField.evaluateDeltaLobe(wx, wz, hStar, flowAcc, incision), residual);
                 }
 
                 double hFinal = hStar + deposition;
@@ -528,6 +573,7 @@ public final class ScalarFieldKernel implements FieldKernel {
 
                 scratchpad.flowAccGrid[cIdx] = flowAcc;
                 scratchpad.riverIncisionGrid[cIdx] = incision;
+                scratchpad.hPreGrid[cIdx] = hPre;
                 scratchpad.depositionGrid[cIdx] = deposition;
                 scratchpad.surfaceGrid[cIdx] = hFinal;
             }
@@ -556,6 +602,7 @@ public final class ScalarFieldKernel implements FieldKernel {
                 scratchpad.sample.finalSurface = hC;
                 scratchpad.sample.gradMagnitude = Math.sqrt(scratchpad.gradXGrid[cIdx] * scratchpad.gradXGrid[cIdx] + scratchpad.gradZGrid[cIdx] * scratchpad.gradZGrid[cIdx]);
                 scratchpad.sample.riverIncision = scratchpad.riverIncisionGrid[cIdx];
+                scratchpad.sample.hPre = scratchpad.hPreGrid[cIdx];
                 scratchpad.sample.temperature = scratchpad.tempGrid[cIdx];
                 scratchpad.sample.humidity = scratchpad.humidGrid[cIdx];
                 scratchpad.sample.erosionLowering = scratchpad.erosionGrid[cIdx];
@@ -664,4 +711,9 @@ public final class ScalarFieldKernel implements FieldKernel {
      * @return the dimension profile this kernel was constructed with
      */
     public DimensionProfile getProfile() { return profile; }
+
+    /**
+     * @return the region-based hydrology router, for conformance probes
+     */
+    public DrainageRouter getDrainageRouter() { return drainageRouter; }
 }

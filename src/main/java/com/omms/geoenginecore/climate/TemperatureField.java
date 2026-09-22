@@ -4,6 +4,7 @@ import com.omms.geoenginecore.math.GeoConfig;
 import com.omms.geoenginecore.noise.GeoNoise;
 import com.omms.geoenginecore.noise.NoiseDomain;
 import com.omms.geoenginecore.noise.SeedDerivation;
+import com.omms.geoenginecore.math.GeoMath;
 
 /**
  * Normalized horizontal temperature field with lapse-rate altitude
@@ -50,6 +51,6 @@ public final class TemperatureField {
     public double evaluate(double x, double z, double worldY) {
         double raw = (noise.sample2D(x * frequency, z * frequency) + 1.0) * 0.5;
         double altitudeAboveSea = Math.max(0.0, worldY - seaLevel);
-        return Math.clamp(raw - (altitudeAboveSea * lapseRate), 0.0, 1.0);
+        return GeoMath.clamp(raw - (altitudeAboveSea * lapseRate), 0.0, 1.0);
     }
 }
