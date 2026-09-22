@@ -54,8 +54,12 @@ public class MultiSeedMultiThreadMatrixTest {
         "classificationBitsGrid", "simdX0", "riverWaterLevelGrid"
     };
 
+    private static final String[] LONG_GRID_NAMES = {
+        "basinIdGrid", "confluenceIdGrid"
+    };
+
     /** Deep copy of every scratchpad output grid, for cross-thread comparison. */
-    private record ScratchpadSnapshot(double[][] doubleGrids, int[][] intGrids) {
+    private record ScratchpadSnapshot(double[][] doubleGrids, int[][] intGrids, long[][] longGrids) {
     }
 
     /**
@@ -105,6 +109,7 @@ public class MultiSeedMultiThreadMatrixTest {
             sp.simdYVals, sp.simdWVals
         };
         int[][] intGrids = {sp.classificationBitsGrid, sp.simdX0, sp.riverWaterLevelGrid};
+        long[][] longGrids = {sp.basinIdGrid, sp.confluenceIdGrid};
 
         double[][] doubleCopies = new double[doubleGrids.length][];
         for (int i = 0; i < doubleGrids.length; i++) {
@@ -114,9 +119,14 @@ public class MultiSeedMultiThreadMatrixTest {
         for (int i = 0; i < intGrids.length; i++) {
             intCopies[i] = Arrays.copyOf(intGrids[i], intGrids[i].length);
         }
+        long[][] longCopies = new long[longGrids.length][];
+        for (int i = 0; i < longGrids.length; i++) {
+            longCopies[i] = Arrays.copyOf(longGrids[i], longGrids[i].length);
+        }
         assertEquals(DOUBLE_GRID_NAMES.length, doubleCopies.length, "grid list must match the name table");
         assertEquals(INT_GRID_NAMES.length, intCopies.length, "grid list must match the name table");
-        return new ScratchpadSnapshot(doubleCopies, intCopies);
+        assertEquals(LONG_GRID_NAMES.length, longCopies.length, "grid list must match the name table");
+        return new ScratchpadSnapshot(doubleCopies, intCopies, longCopies);
     }
 
     private void compareSnapshots(ScratchpadSnapshot baseline, ScratchpadSnapshot result, String context) {
@@ -127,6 +137,10 @@ public class MultiSeedMultiThreadMatrixTest {
         for (int i = 0; i < INT_GRID_NAMES.length; i++) {
             assertArrayEquals(baseline.intGrids[i], result.intGrids[i],
                 context + ": int grid " + INT_GRID_NAMES[i] + " must be bit-exact");
+        }
+        for (int i = 0; i < LONG_GRID_NAMES.length; i++) {
+            assertArrayEquals(baseline.longGrids[i], result.longGrids[i],
+                context + ": long grid " + LONG_GRID_NAMES[i] + " must be bit-exact");
         }
     }
 }

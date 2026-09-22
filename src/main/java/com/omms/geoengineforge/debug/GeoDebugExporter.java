@@ -58,7 +58,7 @@ public final class GeoDebugExporter {
             writer.write("worldX,worldZ,rawTectonic,stressWarpX,stressWarpZ,warpedX,warpedZ," +
                          "age,temperature,humidity,climateMultiplier,erosionLowering,h0,hPre," +
                          "gradX,gradZ,slope,laplacian,flowAcc,riverIncision,deposition,finalSurface," +
-                         "landformId,landformName\n");
+                         "basinId,confluenceId,landformId,landformName\n");
 
             for (int z = minBlockZ; z < maxBlockZ; z += 4) {
                 for (int x = minBlockX; x < maxBlockX; x += 4) {
@@ -70,11 +70,11 @@ public final class GeoDebugExporter {
                         "%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f," +
                         "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f," +
                         "%.4f,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f," +
-                        "%d,%s\n",
+                        "%d,%d,%d,%s\n",
                         x, z, sample.rawTectonic, sample.stressWarpX, sample.stressWarpZ, sample.warpedX, sample.warpedZ,
                         sample.age, sample.temperature, sample.humidity, sample.climateMultiplier, sample.erosionLowering, sample.surfaceH0, sample.hPre,
                         sample.gradX, sample.gradZ, sample.gradMagnitude, sample.laplacian, sample.flowAccumulation, sample.riverIncision, sample.deposition, sample.finalSurface,
-                        type.getId(), type.name()
+                        sample.basinId, sample.confluenceId, type.getId(), type.name()
                     ));
                 }
             }

@@ -46,6 +46,10 @@ public final class GeoSample {
     public double hPre;
     /** Deterministic flow accumulation proxy A_f (TECHSPEC §27). */
     public double flowAccumulation;
+    /** Stable scoped ID of the column's drainage basin (§80); 0 = none. */
+    public long basinId;
+    /** Stable scoped ID of the column's confluence (§80); 0 = not a confluence. */
+    public long confluenceId;
     /** Bounded river incision R (TECHSPEC §28). */
     public double riverIncision;
     /** Equilibrium deposition S within the budget 0 ≤ S ≤ S_max (TECHSPEC §32-§34). */

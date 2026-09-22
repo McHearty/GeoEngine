@@ -70,6 +70,10 @@ public final class WorkerScratchpad {
     public final double[] flowAccGrid = new double[CHUNK_SURFACE_SIZE];
     /** Fluvial incision R per column (TECHSPEC §28). */
     public final double[] riverIncisionGrid = new double[CHUNK_SURFACE_SIZE];
+    /** Stable scoped drainage-basin ID per column (§80); 0 = none. */
+    public final long[] basinIdGrid = new long[CHUNK_SURFACE_SIZE];
+    /** Stable scoped confluence ID per column (§80); 0 = not a confluence. */
+    public final long[] confluenceIdGrid = new long[CHUNK_SURFACE_SIZE];
     /** Equilibrium deposition S per column (TECHSPEC §32-§34). */
     public final double[] depositionGrid = new double[CHUNK_SURFACE_SIZE];
     /** Bit-packed landform classification per column. */
@@ -167,6 +171,8 @@ public final class WorkerScratchpad {
         sample.gradMagnitude = Math.sqrt(sample.gradX * sample.gradX + sample.gradZ * sample.gradZ);
         sample.laplacian = laplacianGrid[idx];
         sample.flowAccumulation = flowAccGrid[idx];
+        sample.basinId = basinIdGrid[idx];
+        sample.confluenceId = confluenceIdGrid[idx];
         sample.riverIncision = riverIncisionGrid[idx];
         sample.deposition = depositionGrid[idx];
         sample.finalSurface = surfaceGrid[idx];

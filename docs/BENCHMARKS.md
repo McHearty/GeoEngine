@@ -14,13 +14,13 @@ math-core changes, and re-baseline the committed floor when the core
 | JVM | Eclipse Temurin 21.0.12.1 (Gradle-provisioned toolchain) |
 | SIMD | `jdk.incubator.vector` enabled via `--add-modules` (Gradle `test` task) |
 | Date | 2026-09-22 |
-| Baseline commit | `14c5190` (last code-verified commit); values measured on the Phase 2 conformance tree that supersedes it |
+| Baseline commit | `14c5190` (last code-verified commit); values measured on the Phase 2 conformance-completion tree that supersedes it |
 
 ## Measured results (2026-09-22)
 
 | Metric | Measured | Committed floor | Headroom |
 |---|---|---|---|
-| Rasterized chunk throughput (scalar kernel) | **1091.5 chunks/sec** | 600 chunks/sec | 1.82× |
+| Rasterized chunk throughput (scalar kernel) | **1230.2 chunks/sec** | 600 chunks/sec | 2.05× |
 | Steady-state heap allocation (rasterized chunk) | **0 bytes/chunk** | 0 bytes/chunk (hard invariant) | — |
 
 ## Measurement protocol
@@ -44,7 +44,7 @@ math-core changes, and re-baseline the committed floor when the core
 
 ## Notes
 
-- The committed floor (600) is 1.82× below this machine's measured
+- The committed floor (600) is 2.05× below this machine's measured
   throughput, leaving headroom for slower CI hardware while still
   catching order-of-magnitude regressions. Throughput scales with
   CPU; re-measure and re-baseline if the math core changes.
@@ -54,6 +54,15 @@ math-core changes, and re-baseline the committed floor when the core
   (−13% vs the Phase 1 record). The walk is bounded (WALK_MARGIN
   23 blocks) and allocation-free, so the 600-chunk/sec floor keeps
   a 1.82× margin and the 0-bytes/chunk invariant is unchanged.
+- Phase 2 conformance-completion re-measurement (2026-09-22): the
+  basin/confluence ID wiring adds two ID array stores per column;
+  the region topology analysis is one-shot per graph (synchronized
+  first-publisher-wins), so its cost amortizes to zero in the
+  steady-state loop. Steady-state throughput on the completion tree:
+  1,230.2 chunks/sec from the final clean `--rerun-tasks` run
+  (the host's run-to-run band on this code spans 1,091.5–1,230.2;
+  the ID wiring is negligible against it), keeping a 2.05× margin
+  over the floor; the 0-bytes/chunk invariant is unchanged.
 - The pre-conformance steady-state allocation was 12,288 bytes/chunk
   (256 columns × 48 B): every flow-accumulation lookup re-boxed a
   `Long` key against a `ConcurrentHashMap<Long, DrainageGraph>`, and

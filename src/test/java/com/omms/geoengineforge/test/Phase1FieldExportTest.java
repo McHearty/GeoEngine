@@ -34,7 +34,7 @@ public class Phase1FieldExportTest {
         "worldX,worldZ,rawTectonic,stressWarpX,stressWarpZ,warpedX,warpedZ," +
         "age,temperature,humidity,climateMultiplier,erosionLowering,h0,hPre," +
         "gradX,gradZ,slope,laplacian,flowAcc,riverIncision,deposition,finalSurface," +
-        "landformId,landformName";
+        "basinId,confluenceId,landformId,landformName";
 
     @Test
     @DisplayName("Field CSV export: header matches §153, every value finite, id/name consistent")
@@ -51,18 +51,21 @@ public class Phase1FieldExportTest {
 
         for (int i = 1; i < lines.size(); i++) {
             String[] cells = lines.get(i).split(",");
-            assertEquals(24, cells.length, "row " + i + " must have 24 columns");
+            assertEquals(26, cells.length, "row " + i + " must have 26 columns");
             for (int c = 0; c < 22; c++) {
                 double value = Double.parseDouble(cells[c]);
                 assertTrue(Double.isFinite(value),
                     "row " + i + " column " + c + " (" + CSV_HEADER.split(",")[c] + ") must be finite");
             }
-            // 22 numeric fields, then landformId, then landformName.
-            int id = Integer.parseInt(cells[22]);
+            // 22 numeric fields, then the stable basin/confluence IDs
+            // (64-bit hashes — may be negative; 0 is the reserved
+            // "none" marker), then landformId, then landformName. Both
+            // parse calls above already validate the column form.
+            int id = Integer.parseInt(cells[24]);
             // UNKNOWN (id 0) is the grammar's designed terminal sentinel.
             assertTrue(id == 0 || (id >= 1 && id <= 20),
                 "row " + i + " landform id " + id + " must be within the taxonomy");
-            assertEquals(LandformType.fromId(id).name(), cells[23],
+            assertEquals(LandformType.fromId(id).name(), cells[25],
                 "row " + i + " landformName must match its id");
         }
     }

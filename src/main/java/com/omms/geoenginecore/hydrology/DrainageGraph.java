@@ -31,6 +31,40 @@ public final class DrainageGraph {
     public final int[] receiverIndex = new int[TOTAL_CELLS];
     /** Catchment discharge A_f of each cell, including upstream contributions. */
     public final double[] flowAccumulation = new double[TOTAL_CELLS];
+    /**
+     * Upstream sender count per cell, snapshotted when routing is
+     * resolved (TECHSPEC §26, §31). A cell with upstreamCount ≥ 2 is a
+     * confluence: the first-class confluence detection signal that
+     * Kahn's algorithm would otherwise consume.
+     */
+    public final int[] upstreamCount = new int[TOTAL_CELLS];
+    /**
+     * Basin ordinal of each cell (index into {@link #basinStableId});
+     * -1 until {@link HydrologyField#analyze} completes. The basin
+     * partition is topological: every cell drains to exactly one
+     * regional sink (elevations strictly decrease along the receiver
+     * chain, so every walk terminates).
+     */
+    public final int[] basinCell = new int[TOTAL_CELLS];
+    /** Confluence ordinal of each cell; -1 when the cell is not a confluence. */
+    public final int[] confluenceCell = new int[TOTAL_CELLS];
+    /** Stable scoped basin IDs indexed by basin ordinal (§80). */
+    public final long[] basinStableId = new long[TOTAL_CELLS];
+    /** Stable scoped confluence IDs indexed by confluence ordinal (§80). */
+    public final long[] confluenceStableId = new long[TOTAL_CELLS];
+    /** Sink cell of each basin, indexed by basin ordinal. */
+    public final int[] basinSinkCell = new int[TOTAL_CELLS];
+    /** Number of basins in this region (valid once analyzed). */
+    public int basinCount;
+    /** Number of confluences in this region (valid once analyzed). */
+    public int confluenceCount;
+    /**
+     * Topology analysis complete flag. Written under the graph's own
+     * monitor (first publisher wins, matching the region cache), then
+     * visible to every worker as a volatile read; per-column basin /
+     * confluence lookups are then plain array reads (TECHSPEC §62).
+     */
+    public volatile boolean topologyAnalyzed;
 
     /** Unprocessed upstream children per cell, used by Kahn's algorithm. */
     private final int[] inDegree = new int[TOTAL_CELLS];
@@ -111,11 +145,21 @@ public final class DrainageGraph {
                 receiverIndex[currentIdx] = steepestNeighbor;
                 if (steepestNeighbor != -1) {
                     inDegree[steepestNeighbor]++;
+                    upstreamCount[steepestNeighbor]++;
                 }
             }
         }
 
-        // Step 3: Kahn's Algorithm for topological flow accumulation (§27)
+        // Step 3: reset topology labels so the graph is clean before
+        // HydrologyField.analyze runs (basin/confluence ordinals are
+        // -1 sentinels until then).
+        Arrays.fill(basinCell, -1);
+        Arrays.fill(confluenceCell, -1);
+        basinCount = 0;
+        confluenceCount = 0;
+        topologyAnalyzed = false;
+
+        // Step 4: Kahn's Algorithm for topological flow accumulation (§27)
         // Headwaters (cells with inDegree == 0) initiate downstream propagation
         int head = 0;
         int tail = 0;

@@ -53,6 +53,8 @@ public final class ScalarFieldKernel implements FieldKernel {
     private final CaveField caveField;
     /** Coarse deterministic drainage router behind the flow accumulation proxy (TECHSPEC §26-§27). */
     private final DrainageRouter drainageRouter;
+    /** First-class hydrology layer: basin identification and confluence detection (TECHSPEC §222, §26). */
+    private final HydrologyField hydrologyField;
 
     // Advanced Geomorphic Process Modifiers
     /** Cryogenic modifier: U-valley floors and cirque bowls (TECHSPEC §118-§119). */
@@ -110,6 +112,7 @@ public final class ScalarFieldKernel implements FieldKernel {
         this.warpField = new WarpField(worldSeed, config);
         this.caveField = new CaveField(worldSeed, config);
         this.drainageRouter = new DrainageRouter();
+        this.hydrologyField = new HydrologyField();
 
         this.glacialField = new GlacialField(worldSeed, config);
         this.aeolianField = new AeolianField(worldSeed, config);
@@ -273,16 +276,27 @@ public final class ScalarFieldKernel implements FieldKernel {
         // clamped to R_max.
         double flowAcc = 0.0;
         double incision = 0.0;
+        long basinId = 0L;
+        long confluenceId = 0L;
         if (profile.hasFluvialHydrology()) {
             int regionX = (int) Math.floor(wx / (double) DrainageRouter.REGION_SPAN);
             int regionZ = (int) Math.floor(wz / (double) DrainageRouter.REGION_SPAN);
             DrainageGraph graph = drainageRouter.resolveGraph(this, worldSeed, config.configHash(), regionX, regionZ);
+            // One-shot topology analysis (basin labels + confluence IDs);
+            // a no-op once this shared graph has been analyzed.
+            hydrologyField.analyze(graph, worldSeed, config.configHash(),
+                config.dimensionId(), config.generatorVersion(), regionX, regionZ);
             flowAcc = evaluateFullFlowAccumulation(wx, wz);
+            int routedCell = drainageRouter.cellIndexFor(regionX, regionZ, wx, wz);
             incision = riverField.computeIncision(flowAcc, sample.gradMagnitude, sample.climateMultiplier,
-                drainageRouter.evaluateChannelFactor(graph,
-                    drainageRouter.cellIndexFor(regionX, regionZ, wx, wz), flowAcc, wx, wz));
+                drainageRouter.evaluateChannelFactor(graph, routedCell, flowAcc, wx, wz));
+            // §80: stable scoped basin / confluence identities.
+            basinId = hydrologyField.basinIdForCell(graph, routedCell);
+            confluenceId = hydrologyField.confluenceIdForCell(graph, routedCell);
         }
         sample.flowAccumulation = flowAcc;
+        sample.basinId = basinId;
+        sample.confluenceId = confluenceId;
         sample.riverIncision = incision;
         sample.hPre = hPre;
         double hStar = hPre - incision;
@@ -530,17 +544,26 @@ public final class ScalarFieldKernel implements FieldKernel {
 
                 double flowAcc = 0.0;
                 double incision = 0.0;
+                long basinId = 0L;
+                long confluenceId = 0L;
 
                 if (profile.hasFluvialHydrology()) {
                     int regionX = (int) Math.floor(wx / (double) DrainageRouter.REGION_SPAN);
                     int regionZ = (int) Math.floor(wz / (double) DrainageRouter.REGION_SPAN);
                     DrainageGraph graph = drainageRouter.resolveGraph(this, worldSeed, config.configHash(), regionX, regionZ);
+                    // One-shot topology analysis (basin labels + confluence
+                    // IDs); a no-op once this shared graph is analyzed.
+                    hydrologyField.analyze(graph, worldSeed, config.configHash(),
+                        config.dimensionId(), config.generatorVersion(), regionX, regionZ);
                     flowAcc = evaluateFullFlowAccumulation(wx, wz);
+                    int routedCell = drainageRouter.cellIndexFor(regionX, regionZ, wx, wz);
                     // §28: R = F(A_f)·F_slope·F_climate·F_channel. F_channel
                     // is measured from the routing-lattice centerline (§29).
                     incision = riverField.computeIncision(flowAcc, slope, climateMult,
-                        drainageRouter.evaluateChannelFactor(graph,
-                            drainageRouter.cellIndexFor(regionX, regionZ, wx, wz), flowAcc, wx, wz));
+                        drainageRouter.evaluateChannelFactor(graph, routedCell, flowAcc, wx, wz));
+                    // §80: stable scoped basin / confluence identities.
+                    basinId = hydrologyField.basinIdForCell(graph, routedCell);
+                    confluenceId = hydrologyField.confluenceIdForCell(graph, routedCell);
                 }
 
                 double hStar = hPre - incision;
@@ -573,6 +596,8 @@ public final class ScalarFieldKernel implements FieldKernel {
 
                 scratchpad.flowAccGrid[cIdx] = flowAcc;
                 scratchpad.riverIncisionGrid[cIdx] = incision;
+                scratchpad.basinIdGrid[cIdx] = basinId;
+                scratchpad.confluenceIdGrid[cIdx] = confluenceId;
                 scratchpad.hPreGrid[cIdx] = hPre;
                 scratchpad.depositionGrid[cIdx] = deposition;
                 scratchpad.surfaceGrid[cIdx] = hFinal;
@@ -716,4 +741,9 @@ public final class ScalarFieldKernel implements FieldKernel {
      * @return the region-based hydrology router, for conformance probes
      */
     public DrainageRouter getDrainageRouter() { return drainageRouter; }
+
+    /**
+     * @return the hydrology layer (basin identification, confluences)
+     */
+    public HydrologyField getHydrologyField() { return hydrologyField; }
 }

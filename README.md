@@ -52,12 +52,12 @@ The codebase enforces a strict dependency inversion between the pure mathematica
 
 ## 2. Current Implementation Status
 
-* **Phases 1–9**: SEALED & CONFORMANCE-VERIFIED — full headless suite green (19 test classes, 71 tests, 0 failures, 0 skipped).
-* **Last verified**: 2026-09-22 — forced full re-run (`./gradlew test --rerun-tasks`) after the Phase 2 conformance re-pass (F_channel wiring, routing-lattice coordinate fix, core `GeoMath` clamp, bounded-incision test): **71/71 passed**, all headless (19 suites; matrix in §6, benchmark record in `docs/BENCHMARKS.md`).
+* **Phases 1–9**: SEALED & CONFORMANCE-VERIFIED — full headless suite green (20 test classes, 75 tests, 0 failures, 0 skipped).
+* **Last verified**: 2026-09-22 — forced full re-run (`./gradlew test --rerun-tasks`) after the Phase 2 conformance re-pass and completion (F_channel wiring, routing-lattice coordinate fix, core `GeoMath` clamp, bounded-incision test; first-class `HydrologyField` basin/confluence topology per §222): **75/75 passed**, all headless (20 suites; matrix in §6, benchmark record in `docs/BENCHMARKS.md`).
 * **Phase 1 conformance re-pass (lands with this update)**: re-audited all eight Phase 1 acceptance criteria against TECHSPEC §§220–230; suite extended 12 classes / 30 tests → 19 classes / 70 tests (seven new suites). Defects found and fixed:
   1. `DerivativeSampler` central-difference factor-of-2 error — dead code, now the standalone §37 reference pinned by `Phase1DerivativeStencilTest` (the kernel keeps its inline stencils).
   2. `GeoConfig` accepted NaN/±Infinity and malformed cave envelopes — §64 validation now rejects non-finite components, non-positive frequencies, negative lapse rates, and inverted/out-of-bounds cave envelopes.
-  3. `LandformClassifier` held shared mutable solver scratch (`CurvatureResult`/`ReliefReport`), breaking 16-thread determinism — now ThreadLocal-confined per §66; `MultiSeedMultiThreadMatrixTest` compares the entire scratchpad (28 double + 3 int grids) bit-exactly across 16 threads × 5 seeds.
+  3. `LandformClassifier` held shared mutable solver scratch (`CurvatureResult`/`ReliefReport`), breaking 16-thread determinism — now ThreadLocal-confined per §66; `MultiSeedMultiThreadMatrixTest` compares the entire scratchpad (28 double + 3 int + 2 long stable-ID grids) bit-exactly across 16 threads × 5 seeds.
   4. §62 zero steady-state allocation violated — 12,288 B/chunk from `Long` autoboxing in `ConcurrentHashMap<Long, DrainageGraph>` lookups (the single-slot thread register missed on every blended seam column). Fixed: striped primitive-`long`-keyed open-addressing cache (lock-free hit path) + 4-slot direct-mapped register in the thread-confined `WorkerScratchpad`. Steady state is now **0 bytes/chunk**.
   5. `GeoDebugExporter.exportVerticalSlicePng` flip indexed `worldMinY`-offset rows, going negative for `worldMinY = -64` — now flips on image height (TECHSPEC §154).
   6. Terminal landform fallback resolved to `PLAINS` (the grammar's documented catch-all; residual Tier-4 convex cases now resolve to `MOUNTAIN`); `UNKNOWN` (id 0) remains a defensive sentinel for corrupted bits, capped at 5% in the finiteness sweep as a regression guard.
@@ -162,7 +162,7 @@ The codebase enforces a strict dependency inversion between the pure mathematica
     │               ├── dimension/          # vanilla dimension overrides
     │               └── worldgen/           # world presets (geoengine/normal) + normal.json
     └── test/
-        ├── java/com/omms/geoenginecore/test/    # 18 headless core suites (Phases 1–9 + conformance)
+        ├── java/com/omms/geoenginecore/test/    # 19 headless core suites (Phases 1–9 + conformance)
         └── java/com/omms/geoengineforge/test/   # Phase 4 raster pipeline + Phase 1 field-export suites
 ```
 
@@ -196,7 +196,7 @@ build/libs/geoengine-1.0.0.jar
 
 All test suites are located in `src/test/java/` and execute **completely headless** without launching a Minecraft client, server, or graphical environment.
 
-**Suite status (2026-09-21, post conformance re-pass): 19 classes, 70 tests, 0 failures, 0 skipped — all green.**
+**Suite status (2026-09-22, post Phase 2 conformance completion): 20 classes, 75 tests, 0 failures, 0 skipped — all green.**
 
 ### Running the Full Test Suite
 ```bash
@@ -211,6 +211,7 @@ All test suites are located in `src/test/java/` and execute **completely headles
 | :--- | :--- | :--- |
 | `Phase1CoreVerificationTest` | 4 | Configuration validation (Phase 1 acceptance), position-correct climate variation across a chunk, `SOLID` classification for deep subterranean crust (§53), density monotonicity $\frac{\partial D}{\partial y} = -1$ when $W = 0, C = 0$ (§50). |
 | `Phase2And3VerificationTest` | 6 | Deposition strictly within budget ($0 \le S \le E_{\text{total}}$, §33), incision strictly within bound ($0 \le R \le R_{\text{max}}$, §28, across a full 256-block hydrology region), continuous river accumulation across the chunk boundary (|Δ$A_f$| < 1.5, |Δ$R$| < 4.0, §136), `evaluateFullColumn` sample write-back (§65), cave void sign convention ($C \ge 0$, §46), conservative section classifier — no false `AIR`/`BAND`/`SOLID` above terrain bounds (§147). |
+| `Phase2BasinConfluenceTest` | 4 | §222 deterministic basin identification and confluences: basin partition disjoint, complete, and mass-conserving (each sink's $A_f$ equals its member count; stable IDs distinct, §80); confluences first-class (≥ 2 upstream senders, ascending-cell enumeration, world coordinates re-derived from the z-major lattice); IDs bit-identical across independent kernel instances and a 16-thread rasterization; no stable-ID collisions across world seeds or generator-version variants. |
 | `Phase3BandRatioAllocationTest` | 1 | 2048-block vertical scalability ($N_{\text{band}} / N_{\text{total}} < 20\%$ across 128 sections, §2.4, §55). |
 | `Phase4RasterPipelineTest` | 1 | End-to-end simulated full-chunk rasterization lifecycle with decoupled pipeline delegation, verifying bulk fast-paths and heightmap synchronization without Minecraft classes (§141–§143). |
 | `Phase5LandformGrammarTest` | 4 | Multi-scale prominence discrimination (Butte vs Mesa vs Plateau, §99), priority overrides (Canyon > Valley, §186), compound Fjord detection (Glacial + Coastal + Trough, §187), curvature/prominence mountain-massif identification. |
@@ -218,7 +219,7 @@ All test suites are located in `src/test/java/` and execute **completely headles
 | `Phase6And7IntegrationTest` | 3 | Additive process terms active in the Overworld pipeline (Phase 7); Nether profile reconfigures the field stack — zero fluvial, active lava (Phase 6); End profile enforces Voronoi monoliths and eliminates floating slabs (Phase 6). |
 | `Phase8PerformanceTest` | 3 | True zero steady-state heap allocation at source level via `ThreadMXBean` (§62), scalar/vector numerical parity (|$\Delta$| ≤ 1e-5, §71), macro-cache bitwise idempotency and eviction (§77, §160). |
 | `Phase9FinalContentTest` | 4 | Structure placement gating — village rejected on sheer cliffs or shallow voids (§135, §136), dipping strata continuity across chunk boundaries without shearing (§189), deterministic feature triggers: waterfall lip detection and geothermal magma vent detection. |
-| `MultiSeedMultiThreadMatrixTest` | 1 | Concurrent stress test across 5 distinct 64-bit seeds under an 8-thread pool, asserting bit-identical output arrays (§8, §156). |
+| `MultiSeedMultiThreadMatrixTest` | 1 | Concurrent stress test across 5 distinct 64-bit seeds under an 8-thread pool, asserting bit-identical output arrays (28 double + 3 int + 2 long stable-ID grids, §8, §156). |
 | `InterRegionHydrologyContinuityTest` | 1 | Cross-seam evaluation asserting continuous D8 flow accumulation across the 256-block region boundary ($X = 255 \leftrightarrow X = 256$, |Δ$A_f$| < 0.15) via the 4-cell halo of the 24×24 routing lattice (§26, §136). |
 | `NormalizedGeoConfigTest` | 1 | Configuration validation (Phase 1 acceptance, §64): extreme input sweeps over [0.0, 1.0] strictly produce valid, finite `GeoConfig` instances. |
 | `Phase1DerivativeStencilTest` | 8 | §37 on the standalone `DerivativeSampler` reference: central-difference gradients at 2Δ spacing and the exact 5-point Laplacian, incl. non-uniform step handling and `step > 0` guards. |
@@ -227,8 +228,8 @@ All test suites are located in `src/test/java/` and execute **completely headles
 | `Phase1FinitenessSweepTest` | 3 | §153/§154: every scratchpad grid finite and in-domain across dimensions, seeds, and positions; section-classification invariants (`AIR`/`SOLID`/`BAND`); landform ids within the 21-type taxonomy; `UNKNOWN` proportion capped at 5% as a grammar-regression guard. |
 | `CorePurityGuardTest` | 1 | §7: source-tree walk — no `net.minecraft`/`com.mojang`/`net.neoforged` imports anywhere in `com.omms.geoenginecore`. |
 | `Phase1BenchmarkTest` | 1 | §221: steady-state rasterized-chunk throughput after 512-chunk JIT warmup, floored at 600 chunks/sec (re-baselined from 200); measured values recorded in `docs/BENCHMARKS.md`. |
-| `Phase1FieldExportTest` (forge) | 4 | §153/§154 field exports: 24-column CSV (22 numeric fields incl. `hPre` + `landformId` + `landformName`), 48-block heightmap PNG at radius 1, 48×576 vertical-slice PNG with correct Y flip for negative `worldMinY`, point-query round-trip. |
-| *Total* | **71** | *All green as of the last verified run (§2).* |
+| `Phase1FieldExportTest` (forge) | 4 | §153/§154 field exports: 26-column CSV (22 numeric fields incl. `hPre` + stable `basinId`/`confluenceId` + `landformId` + `landformName`), 48-block heightmap PNG at radius 1, 48×576 vertical-slice PNG with correct Y flip for negative `worldMinY`, point-query round-trip. |
+| *Total* | **75** | *All green as of the last verified run (§2).* |
 
 Coverage notes:
 
@@ -306,7 +307,7 @@ GeoEngine provides operator commands for live diagnostics (full set in `GeoDebug
 
 ## 8. Performance & Operational Benchmarks
 
-Empirical metrics collected from the automated test suites on Java 21 (x86_64, AVX2 enabled) during the Phase 8 sealing run, re-verified on the Phase 1 conformance re-pass (2026-09-21; durable record in `docs/BENCHMARKS.md`). Values are machine- and JVM-dependent — **re-run the suite and re-record after any change to the mathematical core**.
+Empirical metrics collected from the automated test suites on Java 21 (x86_64, AVX2 enabled) during the Phase 8 sealing run, re-verified on the Phase 2 conformance completion (2026-09-22; durable record in `docs/BENCHMARKS.md`). Values are machine- and JVM-dependent — **re-run the suite and re-record after any change to the mathematical core**.
 
 * **Section Classification Fast-Path Ratio (§179):**
   - `AIR` sections (stratosphere bulk-fill): **$65.6\%$** (84/128 sections)
