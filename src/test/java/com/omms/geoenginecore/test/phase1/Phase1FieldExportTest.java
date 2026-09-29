@@ -38,6 +38,8 @@ public class Phase1FieldExportTest {
         "basinId,confluenceId,landformId,landformName";
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Field CSV export: header matches §153, every value finite, id/name consistent")
     void testFieldsCsvExport() throws Exception {
@@ -73,6 +75,8 @@ public class Phase1FieldExportTest {
     }
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Heightmap PNG export: decodable image with the expected dimensions")
     void testHeightmapPngExport() throws Exception {
@@ -89,6 +93,8 @@ public class Phase1FieldExportTest {
     }
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Vertical slice PNG export: decodable image with the expected dimensions")
     void testVerticalSlicePngExport() throws Exception {
@@ -105,6 +111,8 @@ public class Phase1FieldExportTest {
     }
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Point query reports SOLID below the surface and AIR above it")
     void testQueryPoint() throws Exception {

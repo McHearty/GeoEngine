@@ -63,6 +63,8 @@ public class Phase1ChunkSeamContinuityTest {
     private static final double WORLD_MIN_Y = -64.0;
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("X-direction chunk seams: every field continuous within Lipschitz bounds")
     void testXSeamContinuity() {
@@ -77,6 +79,8 @@ public class Phase1ChunkSeamContinuityTest {
     }
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Z-direction chunk seams: every field continuous within Lipschitz bounds")
     void testZSeamContinuity() {

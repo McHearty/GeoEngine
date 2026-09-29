@@ -22,6 +22,8 @@ public class Phase1DerivativeStencilTest {
     private static final double EPS = 1e-9;
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Unit Slope: central difference recovers slope 1.0 exactly on both axes")
     void testUnitSlopeExact() {
@@ -31,6 +33,8 @@ public class Phase1DerivativeStencilTest {
     }
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Tilted Plane: H = 0.3x - 0.2z reproduces both analytic gradient components")
     void testTiltedPlaneGradients() {
@@ -77,6 +81,8 @@ public class Phase1DerivativeStencilTest {
     }
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Quadratic Bowl: 5-point Laplacian equals 2 * H'' (spec exactness claim)")
     void testQuadraticBowlLaplacian() {
@@ -111,6 +117,8 @@ public class Phase1DerivativeStencilTest {
     }
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Magnitude: (3, 4) yields |∇H| = 5 and is sign-invariant")
     void testMagnitude() {

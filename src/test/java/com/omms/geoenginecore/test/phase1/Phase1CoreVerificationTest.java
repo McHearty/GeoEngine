@@ -40,6 +40,8 @@ public class Phase1CoreVerificationTest {
      * rejected at construction.
      */
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Configuration validation")
     void testConfigurationValidation() {
@@ -75,6 +77,8 @@ public class Phase1CoreVerificationTest {
      * Deep subterranean crust classifies SOLID.
      */
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("SectionClassifier emits SOLID for deep subterranean crust")
     void testSectionClassifierEmitsSolid() {

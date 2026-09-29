@@ -40,6 +40,8 @@ public class InterRegionHydrologyContinuityTest {
      * Flow accumulation just west (X=255) and east (X=256) of the
      * region seam must stay within a smooth transition tolerance.
      */
+    @Tag("must")
+    @Tag("phase2")
     @Test
     @DisplayName("Authoritative D8 Drainage Graph: Seamless flow accumulation across 256-block region boundary")
     void testInterRegionBoundaryContinuity() {

@@ -45,6 +45,8 @@ public class Phase1FinitenessSweepTest {
     };
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Scratchpad Finiteness Sweep: every grid finite across all dimensions, seeds, and positions")
     void testScratchpadFinitenessSweep() {
@@ -67,6 +69,8 @@ public class Phase1FinitenessSweepTest {
     }
 
 
+    @Tag("must")
+    @Tag("phase1")
     @Test
     @DisplayName("Full-Column Finiteness Sweep: every GeoSample field finite and in domain")
     void testSampleFinitenessSweep() {

@@ -35,6 +35,8 @@ public class Phase2VerificationTest {
      * (TECHSPEC §108).
      */
 
+    @Tag("must")
+    @Tag("phase2")
     @Test
     @DisplayName("Phase-2 Acceptance: Deposition strictly within budget (0 <= S <= E_total)")
     void testRealPipelineDepositionBudget() {
@@ -57,6 +59,8 @@ public class Phase2VerificationTest {
      * boundary (TECHSPEC §136): |ΔA_f| < 1.5, |ΔR| < 4.0.
      */
 
+    @Tag("must")
+    @Tag("phase2")
     @Test
     @DisplayName("Phase-2 Acceptance: Continuous River Accumulation Across Chunk Boundary")
     void testRiverContinuityAcrossChunkBoundary() {
@@ -103,6 +107,8 @@ public class Phase2VerificationTest {
      * acceptance "bounded incision").
      */
 
+    @Tag("must")
+    @Tag("phase2")
     @Test
     @DisplayName("Phase-2 Acceptance: Incision bounded (0 <= R <= R_max)")
     void testIncisionBounded() {

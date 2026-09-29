@@ -90,6 +90,8 @@ public class Phase2BasinConfluenceTest {
      * non-zero (TECHSPEC §222, §26, §80).
      */
 
+    @Tag("must")
+    @Tag("phase2")
     @Test
     @DisplayName("Phase-2 Acceptance: deterministic basin identification (disjoint, complete, mass-conserving)")
     void testBasinsPartitionCells() {
@@ -160,6 +162,8 @@ public class Phase2BasinConfluenceTest {
      * with world coordinates matching the z-major lattice.
      */
 
+    @Tag("must")
+    @Tag("phase2")
     @Test
     @DisplayName("Phase-2 Acceptance: deterministic confluences (first-class detection, stable IDs)")
     void testConfluencesFirstClass() {
@@ -213,6 +217,8 @@ public class Phase2BasinConfluenceTest {
      * §222), and the full-column sample carries the same stable IDs.
      */
 
+    @Tag("must")
+    @Tag("phase2")
     @Test
     @DisplayName("Phase-2 Acceptance: basin/confluence IDs bit-exact across instances and 16 threads")
     void testDeterministicBasinConfluenceIds() throws Exception {
@@ -273,6 +279,8 @@ public class Phase2BasinConfluenceTest {
      * (configuration) variants (TECHSPEC §80).
      */
 
+    @Tag("must")
+    @Tag("phase2")
     @Test
     @DisplayName("Phase-2 Acceptance: stable IDs scoped — no collision across seeds or generator versions")
     void testStableIdsScoped() {
