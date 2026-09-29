@@ -278,6 +278,7 @@ public final class ScalarFieldKernel implements FieldKernel {
         double incision = 0.0;
         long basinId = 0L;
         long confluenceId = 0L;
+        double channelFactor = 1.0;
         if (profile.hasFluvialHydrology()) {
             int regionX = (int) Math.floor(wx / (double) DrainageRouter.REGION_SPAN);
             int regionZ = (int) Math.floor(wz / (double) DrainageRouter.REGION_SPAN);
@@ -288,8 +289,8 @@ public final class ScalarFieldKernel implements FieldKernel {
                 config.dimensionId(), config.generatorVersion(), regionX, regionZ);
             flowAcc = evaluateFullFlowAccumulation(wx, wz);
             int routedCell = drainageRouter.cellIndexFor(regionX, regionZ, wx, wz);
-            incision = riverField.computeIncision(flowAcc, sample.gradMagnitude, sample.climateMultiplier,
-                drainageRouter.evaluateChannelFactor(graph, routedCell, flowAcc, wx, wz));
+            channelFactor = drainageRouter.evaluateChannelFactor(graph, routedCell, flowAcc, wx, wz);
+            incision = riverField.computeIncision(flowAcc, sample.gradMagnitude, sample.climateMultiplier, channelFactor);
             // §80: stable scoped basin / confluence identities.
             basinId = hydrologyField.basinIdForCell(graph, routedCell);
             confluenceId = hydrologyField.confluenceIdForCell(graph, routedCell);
@@ -298,6 +299,7 @@ public final class ScalarFieldKernel implements FieldKernel {
         sample.basinId = basinId;
         sample.confluenceId = confluenceId;
         sample.riverIncision = incision;
+        sample.channelFactor = (float) channelFactor;
 
         // Channel order classification (Phase 9 spec §2)
         if (flowAcc < 2.5) {
@@ -341,7 +343,7 @@ public final class ScalarFieldKernel implements FieldKernel {
             double sFluvial = Math.min(
                 DepositionField.computeDeposition(
                     sample.erosionLowering, incision, sample.gradMagnitude,
-                    sample.laplacian, hStar - config.seaLevel(), sample.age
+                    sample.laplacian, hStar - config.seaLevel(), sample.age, channelFactor
                 ),
                 residual
             );

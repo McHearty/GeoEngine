@@ -68,6 +68,8 @@ public final class GeoSample {
     public float distanceToThalweg;
     /** Channel half-width (blocks). */
     public float channelHalfWidth;
+    /** Channel corridor factor F_channel ∈ [0, 1]. */
+    public float channelFactor;
     /** Bitfield of §31 features present at column. */
     public byte featureMask;
 
