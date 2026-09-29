@@ -96,6 +96,10 @@ public final class GeoSurfaceMaterialWriter {
                 context.currentSurfaceDepth = (int) Math.clamp(scratchpad.erosionGrid[cIdx] * 0.1, 0, 3);
                 context.currentIsHole = trueTopY < config.seaLevel();
 
+                // Phase 9: channel and water fields
+                context.currentChannelOrder = scratchpad.channelOrderGrid[cIdx];
+                context.currentWaterSurfaceLevel = scratchpad.waterSurfaceGrid[cIdx];
+
                 int stoneDepthBelow = 0;
 
                 // Traverse downward from trueTopY: NEVER places blocks in air

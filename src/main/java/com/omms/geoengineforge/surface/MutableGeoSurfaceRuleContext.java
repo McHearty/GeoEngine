@@ -37,6 +37,17 @@ public final class MutableGeoSurfaceRuleContext implements GeoSurfaceRuleContext
     public double currentTemperature;
     /** World generation context (sea-level anchors). */
     public WorldGenerationContext currentGenContext;
+    // Phase 9: channel and water fields
+    /** Water surface level (0 = none). */
+    public int currentWaterSurfaceLevel;
+    /** Channel order (0-4). */
+    public byte currentChannelOrder;
+    /** Feature mask bitfield. */
+    public int currentFeatureMask;
+    /** Distance to thalweg. */
+    public double currentDistanceToThalweg;
+    /** Channel half-width. */
+    public double currentChannelHalfWidth;
 
     /** @return reused voxel position. */
     @Override public BlockPos position() { return pos; }
@@ -64,4 +75,11 @@ public final class MutableGeoSurfaceRuleContext implements GeoSurfaceRuleContext
     @Override public double temperature() { return currentTemperature; }
     /** @return world generation context. */
     @Override public WorldGenerationContext generationContext() { return currentGenContext; }
+
+    // Phase 9: channel and water fields
+    @Override public int waterSurfaceLevel() { return currentWaterSurfaceLevel; }
+    @Override public byte channelOrder() { return currentChannelOrder; }
+    @Override public int featureMask() { return currentFeatureMask; }
+    @Override public double distanceToThalweg() { return currentDistanceToThalweg; }
+    @Override public double channelHalfWidth() { return currentChannelHalfWidth; }
 }

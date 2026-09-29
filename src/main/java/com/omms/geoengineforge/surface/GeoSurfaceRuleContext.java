@@ -42,4 +42,16 @@ public interface GeoSurfaceRuleContext {
     double temperature();
     /** @return world generation context (sea-level anchors). */
     WorldGenerationContext generationContext();
+
+    // Phase 9: channel and water fields
+    /** @return water surface level (0 = none). */
+    int waterSurfaceLevel();
+    /** @return channel order (0-4). */
+    byte channelOrder();
+    /** @return feature mask bitfield. */
+    int featureMask();
+    /** @return distance to thalweg. */
+    double distanceToThalweg();
+    /** @return channel half-width. */
+    double channelHalfWidth();
 }
