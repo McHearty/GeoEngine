@@ -52,8 +52,10 @@ The codebase enforces a strict dependency inversion between the pure mathematica
 
 ## 2. Current Implementation Status
 
-* **Phases 1–9**: SEALED & CONFORMANCE-VERIFIED — full headless suite green (20 test classes, 75 tests, 0 failures, 0 skipped).
-* **Last verified**: 2026-09-22 — forced full re-run (`./gradlew test --rerun-tasks`) after the Phase 2 conformance re-pass and completion (F_channel wiring, routing-lattice coordinate fix, core `GeoMath` clamp, bounded-incision test; first-class `HydrologyField` basin/confluence topology per §222): **75/75 passed**, all headless (20 suites; matrix in §6, benchmark record in `docs/BENCHMARKS.md`).
+* **Phase 1**: SEALED & CONFORMANCE-VERIFIED — headless suite green (9 test classes, 24 tests, 0 failures).
+* **Phases 2–9**: SCAFFOLDED — test suites written and passing except for known product bug (channel factor computation yields zero incision); 107/110 tests pass, 3 expected failures (P2-10, P2-11, P9-01).
+* **Phase 10**: NOT STARTED — no @GameTest suites written; scaffolding in place in build.gradle.
+* **Last verified**: 2026-09-29 — full test run after housekeeping reorganization (package restructure, Phase2And3VerificationTest split, TESTING.md documentation): **107/110 passed**.
 * **Phase 1 conformance re-pass (lands with this update)**: re-audited all eight Phase 1 acceptance criteria against TECHSPEC §§220–230; suite extended 12 classes / 30 tests → 19 classes / 70 tests (seven new suites). Defects found and fixed:
   1. `DerivativeSampler` central-difference factor-of-2 error — dead code, now the standalone §37 reference pinned by `Phase1DerivativeStencilTest` (the kernel keeps its inline stencils).
   2. `GeoConfig` accepted NaN/±Infinity and malformed cave envelopes — §64 validation now rejects non-finite components, non-positive frequencies, negative lapse rates, and inverted/out-of-bounds cave envelopes.
@@ -162,8 +164,21 @@ The codebase enforces a strict dependency inversion between the pure mathematica
     │               ├── dimension/          # vanilla dimension overrides
     │               └── worldgen/           # world presets (geoengine/normal) + normal.json
     └── test/
-        ├── java/com/omms/geoenginecore/test/    # 19 headless core suites (Phases 1–9 + conformance)
-        └── java/com/omms/geoengineforge/test/   # Phase 4 raster pipeline + Phase 1 field-export suites
+        └── java/com/omms/geoenginecore/test/    # 49 test classes (110 tests)
+            ├── fixtures/          # Shared test infrastructure
+            ├── invariants/        # Cross-phase invariants (C1-C4)
+            ├── property/          # Property/metamorphic tests
+            ├── goldens/           # Golden regression tests
+            ├── perf/              # Performance and reliability tests
+            ├── phase1/            # Phase 1 tests
+            ├── phase2/            # Phase 2 tests
+            ├── phase3/            # Phase 3 tests
+            ├── phase4/            # Phase 4 tests
+            ├── phase5/            # Phase 5 tests
+            ├── phase6/            # Phase 6 tests
+            ├── phase8/            # Phase 8 tests
+            ├── phase9/            # Phase 9 tests
+            └── phase10/           # Phase 10 tests
 ```
 
 ---
@@ -196,7 +211,38 @@ build/libs/geoengine-1.0.0.jar
 
 All test suites are located in `src/test/java/` and execute **completely headless** without launching a Minecraft client, server, or graphical environment.
 
-**Suite status (2026-09-22, post Phase 2 conformance completion): 20 classes, 75 tests, 0 failures, 0 skipped — all green.**
+**Suite status (2026-09-29, post housekeeping reorganization): 49 test classes, 110 tests, 107 pass, 3 fail (expected).**
+
+### Test Organization
+
+Tests are organized into phase-specific packages:
+
+| Package | Description | Tests |
+|---------|-------------|-------|
+| `fixtures/` | Shared test infrastructure (TestFixtures, FieldAssert, HydrologyProbe) | — |
+| `invariants/` | Cross-phase invariants (C1-C4) | 5 |
+| `property/` | Property/metamorphic tests (P-M-01 to P-M-05) | 7 |
+| `goldens/` | Golden regression tests (P-H-01, P-H-02) | 5 |
+| `perf/` | Performance and reliability tests (P-J-01 to P-J-03) | 6 |
+| `phase1/` | Phase 1 tests | 9 |
+| `phase2/` | Phase 2 tests | 5 |
+| `phase3/` | Phase 3 tests | 3 |
+| `phase4/` | Phase 4 tests | 4 |
+| `phase5/` | Phase 5 tests | 2 |
+| `phase6/` | Phase 6 tests | 2 |
+| `phase8/` | Phase 8 tests | 2 |
+| `phase9/` | Phase 9 tests | 3 |
+| `phase10/` | Phase 10 tests | 1 |
+
+### Known Expected Failures
+
+Three tests fail due to a known product bug in the routing lattice channel factor computation (channelFactor = 0 everywhere):
+
+* **P2-10**: Non-zero river carving over full hydrology region
+* **P2-11**: Incision couples to surface lowering (Hf coupling)
+* **P9-01**: Water surface level computed when R >= EPS_R inland
+
+These will pass once the channel factor product bug is fixed.
 
 ### Running the Full Test Suite
 ```bash
