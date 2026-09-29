@@ -602,13 +602,29 @@ public final class ScalarFieldKernel implements FieldKernel {
                         config.dimensionId(), config.generatorVersion(), regionX, regionZ);
                     flowAcc = evaluateFullFlowAccumulation(wx, wz);
                     int routedCell = drainageRouter.cellIndexFor(regionX, regionZ, wx, wz);
-                    // §28: R = F(A_f)·F_slope·F_climate·F_channel. F_channel
-                    // is measured from the routing-lattice centerline (§29).
-                    incision = riverField.computeIncision(flowAcc, slope, climateMult,
-                        drainageRouter.evaluateChannelFactor(graph, routedCell, flowAcc, wx, wz));
                     // §80: stable scoped basin / confluence identities.
                     basinId = hydrologyField.basinIdForCell(graph, routedCell);
                     confluenceId = hydrologyField.confluenceIdForCell(graph, routedCell);
+
+                    // Channel order classification (Phase 9)
+                    byte order;
+                    if (flowAcc < 2.5) {
+                        order = 0;
+                    } else if (flowAcc < 8.0) {
+                        order = 1;
+                    } else if (flowAcc < 25.0) {
+                        order = 2;
+                    } else if (flowAcc < 80.0) {
+                        order = 3;
+                    } else {
+                        order = 4;
+                    }
+
+                    // §28: R = F(A_f)·F_slope·F_climate·F_channel.
+                    // Use meandered channel factor for lateral displacement (§30).
+                    incision = riverField.computeIncision(flowAcc, slope, climateMult,
+                        drainageRouter.evaluateChannelFactorMeandered(graph, routedCell,
+                            flowAcc, order, slope, wx, wz, worldSeed, basinId));
                 }
 
                 double hStar = hPre - incision;
