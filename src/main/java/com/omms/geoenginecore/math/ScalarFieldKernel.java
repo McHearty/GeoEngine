@@ -315,6 +315,18 @@ public final class ScalarFieldKernel implements FieldKernel {
         // Channel half-width (used by adapter for corridor tests)
         sample.channelHalfWidth = (float) com.omms.geoenginecore.hydrology.ChannelField.getWidth(flowAcc);
 
+        // Feature grammar (Phase 9 spec §31)
+        // Simplified: detect confluence from graph, compute other features from local properties
+        boolean atConfluence = sample.confluenceId != 0L;
+        // Note: parallelFlow, atDelta, atAlluvialFan require graph topology queries
+        // that are not available in the per-column evaluation path. These are
+        // computed in the region-scoped feature raster (future work).
+        int featureMask = com.omms.geoenginecore.hydrology.FeatureGrammar.computeFeatureMask(
+            sample.channelOrder, flowAcc, sample.gradMagnitude,
+            sample.laplacian, 0.0, sample.channelHalfWidth,
+            atConfluence, false, false, false, 0.0);
+        sample.featureMask = (byte) featureMask;
+
         sample.hPre = hPre;
         double hStar = hPre - incision;
 
