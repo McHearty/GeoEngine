@@ -262,8 +262,7 @@ public final class DrainageRouter {
 
         // Compute distance to the meandered centerline
         double best = pointDistance(wx, wz,
-            graph.latticeX(routedCell) + MeanderField.offset(channelOrder, slope, halfWidth,
-                seed, basinId, 0.0), graph.latticeZ(routedCell));
+            graph.latticeX(routedCell), graph.latticeZ(routedCell));
 
         if (best > halfWidth + WALK_MARGIN) {
             return 0.0;
@@ -276,13 +275,26 @@ public final class DrainageRouter {
             if (next < 0) {
                 break;
             }
-            // Compute meandered segment endpoints
+            // Compute segment endpoints
             double x1 = graph.latticeX(cur);
             double z1 = graph.latticeZ(cur);
             double x2 = graph.latticeX(next);
             double z2 = graph.latticeZ(next);
 
-            // Apply meander offset at each vertex
+            // Compute flow direction and perpendicular
+            double dx = x2 - x1;
+            double dz = z2 - z1;
+            double len = Math.sqrt(dx * dx + dz * dz);
+            if (len < 1e-6) {
+                len = 1.0;
+            }
+            double dirX = dx / len;
+            double dirZ = dz / len;
+            // Perpendicular direction (90° CCW)
+            double perpX = -dirZ;
+            double perpZ = dirX;
+
+            // Apply meander offset perpendicular to flow direction
             double offset1 = MeanderField.offset(channelOrder, slope, halfWidth,
                 seed, basinId, arcLength);
             double offset2 = MeanderField.offset(channelOrder, slope, halfWidth,
@@ -290,14 +302,16 @@ public final class DrainageRouter {
 
             // Compute distance to meandered segment
             best = Math.min(best, segmentDistance(
-                wx, wz, x1 + offset1, z1, x2 + offset2, z2));
+                wx, wz,
+                x1 + perpX * offset1, z1 + perpZ * offset1,
+                x2 + perpX * offset2, z2 + perpZ * offset2));
 
             if (best < halfWidth
-                && pointDistance(wx, wz, x2 + offset2, z2) > halfWidth + WALK_MARGIN) {
+                && pointDistance(wx, wz, x2 + perpX * offset2, z2 + perpZ * offset2) > halfWidth + WALK_MARGIN) {
                 break;
             }
 
-            arcLength += DrainageGraph.CELL_SIZE;
+            arcLength += len;
             cur = next;
         }
         return ChannelField.corridorFactor(halfWidth, best);
