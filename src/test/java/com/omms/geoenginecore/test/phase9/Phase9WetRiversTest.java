@@ -52,6 +52,7 @@ public class Phase9WetRiversTest {
      */
 
     @Test
+    @Tag("must")
     @Tag("phase9")
     @DisplayName("P9-01: Water surface level computed when R >= EPS_R inland")
     void testWaterSurfaceLevelComputed() {
