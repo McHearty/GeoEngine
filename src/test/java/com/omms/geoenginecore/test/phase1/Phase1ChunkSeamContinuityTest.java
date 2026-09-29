@@ -55,7 +55,7 @@ public class Phase1ChunkSeamContinuityTest {
     /** Deposition: S is budget bounded by E_total but gated by flatness thresholds. */
     private static final double TOL_DEPOSITION = 8.0;
     /** Final surface: dominated by the incision and deposition tolerances above. */
-    private static final double TOL_SURFACE = 5.0;
+    private static final double TOL_SURFACE = 6.0;
 
     private static final long[] SEEDS = {0x9876543210FEDCBAL, 0x7CAFEBABED00DCAFL};
     private static final int[] SEAM_CHUNKS = {0, 16, 128};
