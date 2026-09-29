@@ -9,6 +9,7 @@ import com.omms.geoenginecore.raster.SectionClassifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -40,6 +41,7 @@ public class Phase3BandRatioAllocationTest {
      * asserts the &lt;20% BAND budget plus a healthy SOLID/AIR mix
      * (TECHSPEC §150).
      */
+
     @Test
     @DisplayName("Quantitative Section Pruning (N_band / N_total <= 20% on 2048-block column)")
     void testBandRatioMeasurementOn2048World() {

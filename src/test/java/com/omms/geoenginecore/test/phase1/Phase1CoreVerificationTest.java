@@ -9,6 +9,7 @@ import com.omms.geoenginecore.raster.SectionClassifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -38,6 +39,7 @@ public class Phase1CoreVerificationTest {
      * Inconsistent bounds (worldMaxY below sea level) must be
      * rejected at construction.
      */
+
     @Test
     @DisplayName("Configuration validation")
     void testConfigurationValidation() {
@@ -49,6 +51,7 @@ public class Phase1CoreVerificationTest {
      * Temperature/erosion grids vary per column: fields are
      * position-driven, not chunk-constant.
      */
+
     @Test
     @DisplayName("Position-correct climate variation across chunk")
     void testLocalClimatePositionCorrectness() {
@@ -71,6 +74,7 @@ public class Phase1CoreVerificationTest {
     /**
      * Deep subterranean crust classifies SOLID.
      */
+
     @Test
     @DisplayName("SectionClassifier emits SOLID for deep subterranean crust")
     void testSectionClassifierEmitsSolid() {
@@ -86,6 +90,7 @@ public class Phase1CoreVerificationTest {
      * ∂D/∂y = −1 exactly when W = C = 0 (TECHSPEC §102); the 1e-3
      * tolerance covers float32 ULP at magnitude 2000.
      */
+
     @Test
     @DisplayName("Invariant: Density Monotonicity when W=0, C=0 (dD/dy == -1)")
     void testDensityMonotonicity() {

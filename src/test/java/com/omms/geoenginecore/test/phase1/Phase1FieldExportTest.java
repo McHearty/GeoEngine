@@ -7,6 +7,7 @@ import com.omms.geoenginecore.math.ScalarFieldKernel;
 import com.omms.geoengineforge.debug.GeoDebugExporter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.io.TempDir;
 
 import javax.imageio.ImageIO;
@@ -35,6 +36,7 @@ public class Phase1FieldExportTest {
         "age,temperature,humidity,climateMultiplier,erosionLowering,h0,hPre," +
         "gradX,gradZ,slope,laplacian,flowAcc,riverIncision,deposition,finalSurface," +
         "basinId,confluenceId,landformId,landformName";
+
 
     @Test
     @DisplayName("Field CSV export: header matches §153, every value finite, id/name consistent")
@@ -70,6 +72,7 @@ public class Phase1FieldExportTest {
         }
     }
 
+
     @Test
     @DisplayName("Heightmap PNG export: decodable image with the expected dimensions")
     void testHeightmapPngExport() throws Exception {
@@ -85,6 +88,7 @@ public class Phase1FieldExportTest {
         assertEquals(48, image.getHeight(), "3 chunks x 16 blocks/chunk = 48 blocks");
     }
 
+
     @Test
     @DisplayName("Vertical slice PNG export: decodable image with the expected dimensions")
     void testVerticalSlicePngExport() throws Exception {
@@ -99,6 +103,7 @@ public class Phase1FieldExportTest {
         assertEquals(48, image.getWidth(), "3 chunks x 16 blocks/chunk = 48 blocks");
         assertEquals(576, image.getHeight(), "slice spans worldMinY..min(worldMaxY, 512)");
     }
+
 
     @Test
     @DisplayName("Point query reports SOLID below the surface and AIR above it")

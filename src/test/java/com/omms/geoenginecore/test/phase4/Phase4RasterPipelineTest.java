@@ -9,6 +9,7 @@ import com.omms.geoenginecore.raster.SectionClassifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -66,6 +67,7 @@ public class Phase4RasterPipelineTest {
      * evaluations under 20%) → heightmap validation (TECHSPEC
      * §210, §211, §212, §216).
      */
+
     @Test
     @DisplayName("Phase-4 Harness: Full chunk rasterization lifecycle with decoupled pipeline delegation")
     void testSimulatedChunkLifecycle() {

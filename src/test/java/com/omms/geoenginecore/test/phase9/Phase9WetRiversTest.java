@@ -6,6 +6,7 @@ import com.omms.geoenginecore.math.ScalarFieldKernel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.defaultConfig;
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.standardKernel;
@@ -46,7 +47,9 @@ public class Phase9WetRiversTest {
      * is never computed in the core. It documents the expected
      * behavior for Sprint D implementation.
      */
+
     @Test
+    @Tag("must")
     @DisplayName("P9-01: Water surface level computed when R >= EPS_R inland")
     void testWaterSurfaceLevelComputed() {
         // Find a column with significant incision

@@ -5,6 +5,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -16,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * This is a property that must hold regardless of configuration.
  */
 public class PropertyErosionMonotonicityTest {
+
+    @Tag("property")
 
     @Test
     @DisplayName("P-M-02: Total erosion is non-negative and finite")

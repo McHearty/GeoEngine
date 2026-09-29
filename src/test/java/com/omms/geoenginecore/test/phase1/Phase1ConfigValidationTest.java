@@ -3,6 +3,7 @@ package com.omms.geoenginecore.test.phase1;
 import com.omms.geoenginecore.math.GeoConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class Phase1ConfigValidationTest {
 
+
     @Test
     @DisplayName("Inverted Vertical Bounds Rejected (worldMinY < worldMaxY)")
     void testInvertedWorldBounds() {
@@ -31,6 +33,7 @@ public class Phase1ConfigValidationTest {
             0.6, 1.4, 0.0012, 35.0, 5.0, 16,
             18.0, 0.15, -40, 128));
     }
+
 
     @Test
     @DisplayName("Sea Level Below World Floor Rejected")
@@ -44,6 +47,7 @@ public class Phase1ConfigValidationTest {
             18.0, 0.15, -40, 128));
     }
 
+
     @Test
     @DisplayName("Sea Level Above World Ceiling Rejected")
     void testSeaLevelAboveWorld() {
@@ -55,6 +59,7 @@ public class Phase1ConfigValidationTest {
             0.6, 1.4, 0.0012, 35.0, 5.0, 16,
             18.0, 0.15, -40, 128));
     }
+
 
     @Test
     @DisplayName("Zero Tectonic Frequencies Rejected (positive wavelengths, §64)")
@@ -82,6 +87,7 @@ public class Phase1ConfigValidationTest {
             18.0, 0.15, -40, 128));
     }
 
+
     @Test
     @DisplayName("Negative Tectonic Amplitudes Rejected")
     void testNegativeTectonicAmplitudes() {
@@ -108,6 +114,7 @@ public class Phase1ConfigValidationTest {
             18.0, 0.15, -40, 128));
     }
 
+
     @Test
     @DisplayName("Uplift Exponent Below 1 Rejected")
     void testUpliftExponentBelowOne() {
@@ -119,6 +126,7 @@ public class Phase1ConfigValidationTest {
             0.6, 1.4, 0.0012, 35.0, 5.0, 16,
             18.0, 0.15, -40, 128));
     }
+
 
     @Test
     @DisplayName("Non-positive Stress Frequency Rejected")
@@ -132,6 +140,7 @@ public class Phase1ConfigValidationTest {
             18.0, 0.15, -40, 128));
     }
 
+
     @Test
     @DisplayName("Negative Stress Amplitude Rejected")
     void testNegativeStressAmplitude() {
@@ -143,6 +152,7 @@ public class Phase1ConfigValidationTest {
             0.6, 1.4, 0.0012, 35.0, 5.0, 16,
             18.0, 0.15, -40, 128));
     }
+
 
     @Test
     @DisplayName("Stress Warp Exceeding Jacobian Bound Rejected (§44)")
@@ -156,6 +166,7 @@ public class Phase1ConfigValidationTest {
             0.6, 1.4, 0.0012, 35.0, 5.0, 16,
             18.0, 0.15, -40, 128));
     }
+
 
     @Test
     @DisplayName("Non-positive Epoch and Climate Frequencies Rejected (§64 wavelengths)")
@@ -183,6 +194,7 @@ public class Phase1ConfigValidationTest {
             18.0, 0.15, -40, 128));
     }
 
+
     @Test
     @DisplayName("Negative Lapse Rate Rejected")
     void testNegativeLapseRate() {
@@ -194,6 +206,7 @@ public class Phase1ConfigValidationTest {
             0.6, 1.4, -0.0012, 35.0, 5.0, 16,
             18.0, 0.15, -40, 128));
     }
+
 
     @Test
     @DisplayName("Invalid Climate Bounds Rejected (0 <= climateMin <= climateMax)")
@@ -214,6 +227,7 @@ public class Phase1ConfigValidationTest {
             18.0, 0.15, -40, 128));
     }
 
+
     @Test
     @DisplayName("Negative Erosion Rate Rejected")
     void testNegativeBaseErosionRate() {
@@ -225,6 +239,7 @@ public class Phase1ConfigValidationTest {
             0.6, 1.4, 0.0012, -35.0, 5.0, 16,
             18.0, 0.15, -40, 128));
     }
+
 
     @Test
     @DisplayName("Negative Warp Amplitude Rejected (§44 volumetric bound)")
@@ -238,6 +253,7 @@ public class Phase1ConfigValidationTest {
             18.0, 0.15, -40, 128));
     }
 
+
     @Test
     @DisplayName("Non-positive Surface Band Radius Rejected (§51)")
     void testNonPositiveSurfaceBandRadius() {
@@ -249,6 +265,7 @@ public class Phase1ConfigValidationTest {
             0.6, 1.4, 0.0012, 35.0, 5.0, 0,
             18.0, 0.15, -40, 128));
     }
+
 
     @Test
     @DisplayName("Invalid River Parameters Rejected (§28)")
@@ -268,6 +285,7 @@ public class Phase1ConfigValidationTest {
             0.6, 1.4, 0.0012, 35.0, 5.0, 16,
             18.0, 0.0, -40, 128));
     }
+
 
     @Test
     @DisplayName("NaN and Infinity Values Rejected (§64 finite floating point)")
@@ -295,6 +313,7 @@ public class Phase1ConfigValidationTest {
             18.0, 0.15, -40, 128));
     }
 
+
     @Test
     @DisplayName("Cave Envelope Inverted Rejected (§64 valid cave cover depths)")
     void testInvertedCaveEnvelope() {
@@ -306,6 +325,7 @@ public class Phase1ConfigValidationTest {
             0.6, 1.4, 0.0012, 35.0, 5.0, 16,
             18.0, 0.15, 128, -40));
     }
+
 
     @Test
     @DisplayName("Cave Envelope Outside World Bounds Rejected")
@@ -319,6 +339,7 @@ public class Phase1ConfigValidationTest {
             18.0, 0.15, -40, 3000));
     }
 
+
     @Test
     @DisplayName("Degenerate Zero-Height Cave Envelope Accepted (means no caves)")
     void testDegenerateCaveEnvelopeAccepted() {
@@ -330,6 +351,7 @@ public class Phase1ConfigValidationTest {
             0.6, 1.4, 0.0012, 35.0, 5.0, 16,
             18.0, 0.15, 0, 0);
     }
+
 
     @Test
     @DisplayName("Calibrated Baseline Constructs and Hashes Deterministically (§8)")

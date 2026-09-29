@@ -8,6 +8,7 @@ import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.defaultConfig;
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.standardKernel;
@@ -42,7 +43,9 @@ public class Phase3DensityTest {
      * tolerance. This validates that the density field is computed
      * correctly and that no extraneous terms are added.
      */
+
     @Test
+    @Tag("must")
     @DisplayName("P3-01: Density identity D = Hf - (y + W) - C")
     void testDensityIdentity() {
         // Evaluate density at several columns and verify the identity
@@ -93,7 +96,9 @@ public class Phase3DensityTest {
      * that the density field is a proper linear function of Y when
      * no volumetric processes are active.
      */
+
     @Test
+    @Tag("must")
     @DisplayName("P3-06: Monotonicity D(y+1) - D(y) = -1 when W=C=0")
     void testMonotonicity() {
         // Use the DensityField utility class which has a verifyMonotonicity method

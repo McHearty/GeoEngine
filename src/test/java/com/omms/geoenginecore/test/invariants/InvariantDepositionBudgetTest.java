@@ -6,6 +6,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.defaultConfig;
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * simulation.
  */
 public class InvariantDepositionBudgetTest {
+
+    @Tag("invariant")
 
     @Test
     @DisplayName("C3: Deposition budget - total deposition <= total erosion")

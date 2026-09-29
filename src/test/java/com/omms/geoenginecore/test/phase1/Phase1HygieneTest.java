@@ -7,6 +7,7 @@ import com.omms.geoenginecore.noise.NoiseDomain;
 import com.omms.geoenginecore.noise.SeedDerivation;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.defaultConfig;
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,7 +35,9 @@ public class Phase1HygieneTest {
      * provides sufficient avalanche and prevents accidental
      * correlation between fields.
      */
+
     @Test
+    @Tag("must")
     @DisplayName("P1-09: Seed domains produce decorrelated streams")
     void testSeedDomainDecorrelation() {
         // Derive seeds for all domain salts
@@ -75,6 +78,7 @@ public class Phase1HygieneTest {
      * sample.erosionLowering == sample.surfaceH0. This validates the
      * fundamental surface elevation identity (TECHSPEC §48).
      */
+
     @Test
     @DisplayName("P1-10: H0 identity rawTectonic - erosionLowering == surfaceH0")
     void testH0Identity() {

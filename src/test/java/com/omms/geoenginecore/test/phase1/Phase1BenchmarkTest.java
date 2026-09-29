@@ -5,6 +5,7 @@ import com.omms.geoenginecore.math.GeoConfig;
 import com.omms.geoenginecore.math.ScalarFieldKernel;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -24,6 +25,7 @@ public class Phase1BenchmarkTest {
     private static final double BASELINE_CHUNKS_PER_SEC = 600.0;
     private static final int WARMUP_CHUNKS = 512;
     private static final int MEASURED_CHUNKS = 2048;
+
 
     @Test
     @DisplayName("Rasterized chunk throughput does not regress below the committed baseline")

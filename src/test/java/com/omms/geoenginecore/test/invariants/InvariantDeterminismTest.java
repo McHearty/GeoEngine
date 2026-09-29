@@ -6,6 +6,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -30,6 +31,8 @@ public class InvariantDeterminismTest {
             -1L,
             0x5555555555555555L
     };
+
+    @Tag("invariant")
 
     @Test
     @DisplayName("C1: Determinism - 16 threads x 5 seeds produce bit-identical grids")

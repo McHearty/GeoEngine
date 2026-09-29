@@ -5,6 +5,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import java.util.Random;
 
@@ -18,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * the kernel never produces NaN, Infinity, or crashes.
  */
 public class PropertySeedRobustnessTest {
+
+    @Tag("property")
 
     @Test
     @DisplayName("P-M-04: Kernel produces finite values for random seeds")
@@ -39,6 +42,8 @@ public class PropertySeedRobustnessTest {
             }
         }
     }
+
+    @Tag("property")
 
     @Test
     @DisplayName("P-M-04: Kernel handles adversarial seeds (all 1s, all 0s, -1)")

@@ -8,6 +8,7 @@ import com.omms.geoenginecore.raster.SectionClassifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -34,6 +35,7 @@ public class Phase3VerificationTest {
      * Sections far above the world surface classify AIR, never a
      * false BAND/SOLID (TECHSPEC §147).
      */
+
     @Test
     @DisplayName("Conservative Section Classifier: No False AIR above terrain bounds")
     void testSectionClassifierSafety() {

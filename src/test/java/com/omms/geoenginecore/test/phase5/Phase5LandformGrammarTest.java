@@ -7,6 +7,7 @@ import com.omms.geoenginecore.math.ScalarFieldKernel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,6 +38,7 @@ public class Phase5LandformGrammarTest {
      * Flat 32-block neighborhood + low slope + low elevation →
      * PLATEAU/PLAINS, not mesa/butte (TECHSPEC §181).
      */
+
     @Test
     @DisplayName("Multi-Scale Discrimination: Butte vs Mesa vs Plateau")
     void testTablelandScaleDiscrimination() {
@@ -54,6 +56,7 @@ public class Phase5LandformGrammarTest {
      * Deep incision on a steep slope classifies CANYON over generic
      * VALLEY (TECHSPEC §180).
      */
+
     @Test
     @DisplayName("Priority Resolution: Canyon overrides generic Valley")
     void testCanyonPriorityOverride() {
@@ -78,6 +81,7 @@ public class Phase5LandformGrammarTest {
      * FJORD requires GLACIAL + COASTAL + trough shape jointly
      * (TECHSPEC §172).
      */
+
     @Test
     @DisplayName("Compound Landform: Fjord detection requires Glacial + Coastal + Trough")
     void testFjordCompoundClassification() {
@@ -103,6 +107,7 @@ public class Phase5LandformGrammarTest {
      * MOUNTAIN/MASSIF/RIDGE with the ALPINE environment bit
      * (TECHSPEC §170, §176).
      */
+
     @Test
     @DisplayName("Curvature & Prominence: Mountain Massif Identification")
     void testMassifClassification() {

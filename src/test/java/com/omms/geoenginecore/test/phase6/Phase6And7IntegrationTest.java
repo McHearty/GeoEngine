@@ -9,6 +9,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -26,6 +27,7 @@ public class Phase6And7IntegrationTest {
      * Overworld H_f is finite and above the world floor with all
      * process terms active.
      */
+
     @Test
     @DisplayName("Phase 7 Verification: Additive Process Terms active in Overworld Pipeline")
     void testOverworldAdditiveProcessTerms() {
@@ -50,6 +52,7 @@ public class Phase6And7IntegrationTest {
      * fluid level 32, and air (D &lt; 0) above the Nether surface
      * (TECHSPEC §210).
      */
+
     @Test
     @DisplayName("Phase 6 Verification: Nether profile reconfigures field stack (Zero Fluvial, Active Lava)")
     void testNetherStackReconfiguration() {
@@ -70,6 +73,7 @@ public class Phase6And7IntegrationTest {
      * solid at mid-depth (D &gt; 0) and void in the abyss (D &lt; 0)
      * — no floating slabs (TECHSPEC §210).
      */
+
     @Test
     @DisplayName("Phase 6 Verification: End profile enforces Voronoi monoliths and eliminates floating slabs")
     void testEndMonolithicAnchorVerification() {

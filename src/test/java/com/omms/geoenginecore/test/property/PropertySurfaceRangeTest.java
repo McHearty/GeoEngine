@@ -5,6 +5,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -17,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * generation pipeline.
  */
 public class PropertySurfaceRangeTest {
+
+    @Tag("property")
 
     @Test
     @DisplayName("P-M-05: All surface heights are within [0, 384] for multiple seeds")

@@ -6,6 +6,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.*;
 public class PropertyTranslationInvarianceTest {
 
     private static final int CELL_SIZE = 16;
+
+    @Tag("property")
 
     @Test
     @DisplayName("P-M-01: Hydrology topology is invariant under 16-block translations")

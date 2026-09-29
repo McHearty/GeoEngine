@@ -9,6 +9,7 @@ import com.omms.geoenginecore.math.ScalarFieldKernel;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -53,6 +54,7 @@ public class Phase6And7DifferentialTest {
      * Active vs disabled process stacks must diverge on the
      * surface (TECHSPEC §210).
      */
+
     @Test
     @DisplayName("Differential Test: Additive process terms measurably alter Hf relative to disabled baseline")
     void testProcessTermsMeasurablyAlterSurface() {
@@ -94,6 +96,7 @@ public class Phase6And7DifferentialTest {
      * |∇H| is finite and non-negative; derivatives reflect the
      * post-process, pre-fluvial surface (TECHSPEC §210).
      */
+
     @Test
     @DisplayName("Derivative Alignment: Slopes reflect post-process pre-fluvial surface")
     void testDerivativesReflectPostProcessSurface() {

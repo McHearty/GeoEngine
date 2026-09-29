@@ -5,6 +5,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.concurrent.TimeUnit;
@@ -18,6 +19,7 @@ import static com.omms.geoenginecore.test.fixtures.TestFixtures.*;
  * They serve as regression indicators, not hard gates.
  */
 public class PerformanceChunkRasterizationTest {
+
 
     @Test
     @Timeout(value = 30, unit = TimeUnit.SECONDS)
@@ -43,6 +45,7 @@ public class PerformanceChunkRasterizationTest {
         double avgMs = (totalNs / iterations) / 1_000_000.0;
         System.out.println("[PERF] Chunk rasterization: avg " + String.format("%.2f", avgMs) + " ms over " + iterations + " iterations");
     }
+
 
     @Test
     @Timeout(value = 60, unit = TimeUnit.SECONDS)

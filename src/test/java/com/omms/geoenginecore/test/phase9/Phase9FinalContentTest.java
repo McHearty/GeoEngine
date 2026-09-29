@@ -11,6 +11,7 @@ import com.omms.geoenginecore.structure.StructureSuitabilityField;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -46,6 +47,7 @@ public class Phase9FinalContentTest {
      * Flat, dry plains accept a village; a large cave void or a
      * sheer slope reject it (TECHSPEC §208, §209).
      */
+
     @Test
     @DisplayName("Structure Placement Gating: Village rejected on sheer cliffs or shallow voids")
     void testStructureFoundationGating() {
@@ -76,6 +78,7 @@ public class Phase9FinalContentTest {
      * Dipping strata stay continuous across the X=15/16 chunk
      * boundary without shearing (TECHSPEC §199).
      */
+
     @Test
     @DisplayName("Dipping Strata: Continuous horizons across chunk boundary without shearing")
     void testDippingStrataSeamContinuity() {
@@ -97,6 +100,7 @@ public class Phase9FinalContentTest {
      * A 4-block waterfall lip (incision 4.2, slope 0.72) triggers
      * WATERFALL_CREST (TECHSPEC §200).
      */
+
     @Test
     @DisplayName("Deterministic Feature Trigger: Waterfall Lip Detection")
     void testWaterfallDetection() {
@@ -113,6 +117,7 @@ public class Phase9FinalContentTest {
      * A 290-block tectonic uplift with a hot, dry, weakly eroded
      * column triggers GEOTHERMAL_VENT (TECHSPEC §201).
      */
+
     @Test
     @DisplayName("Deterministic Feature Trigger: Geothermal Magma Vent Detection")
     void testGeothermalVentDetection() {

@@ -104,3 +104,54 @@ test {
     useJUnitPlatform()
     jvmArgs(['-XX:+IgnoreUnrecognizedVMOptions', '--add-modules=jdk.incubator.vector'])
 }
+
+// Tag-filtered test tasks
+
+// MUST tests only (fast CI gate)
+task testMust(type: Test) {
+    useJUnitPlatform {
+        includeTags 'must'
+        excludeTags 'known_bug', 'perf', 'timeout'
+    }
+    jvmArgs(['-XX:+IgnoreUnrecognizedVMOptions', '--add-modules=jdk.incubator.vector'])
+}
+
+// Invariant tests
+task testInvariants(type: Test) {
+    useJUnitPlatform {
+        includeTags 'invariant'
+    }
+    jvmArgs(['-XX:+IgnoreUnrecognizedVMOptions', '--add-modules=jdk.incubator.vector'])
+}
+
+// Property/metamorphic tests
+task testProperty(type: Test) {
+    useJUnitPlatform {
+        includeTags 'property'
+    }
+    jvmArgs(['-XX:+IgnoreUnrecognizedVMOptions', '--add-modules=jdk.incubator.vector'])
+}
+
+// Golden regression tests
+task testGolden(type: Test) {
+    useJUnitPlatform {
+        includeTags 'golden'
+    }
+    jvmArgs(['-XX:+IgnoreUnrecognizedVMOptions', '--add-modules=jdk.incubator.vector'])
+}
+
+// Performance tests (report-only)
+task testPerf(type: Test) {
+    useJUnitPlatform {
+        includeTags 'perf'
+    }
+    jvmArgs(['-XX:+IgnoreUnrecognizedVMOptions', '--add-modules=jdk.incubator.vector'])
+}
+
+// Timeout/reliability tests
+task testTimeout(type: Test) {
+    useJUnitPlatform {
+        includeTags 'timeout'
+    }
+    jvmArgs(['-XX:+IgnoreUnrecognizedVMOptions', '--add-modules=jdk.incubator.vector'])
+}

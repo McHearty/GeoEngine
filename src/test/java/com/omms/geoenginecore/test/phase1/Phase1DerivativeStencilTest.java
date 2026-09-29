@@ -3,6 +3,7 @@ package com.omms.geoenginecore.test.phase1;
 import com.omms.geoenginecore.derivative.DerivativeSampler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -20,6 +21,7 @@ public class Phase1DerivativeStencilTest {
 
     private static final double EPS = 1e-9;
 
+
     @Test
     @DisplayName("Unit Slope: central difference recovers slope 1.0 exactly on both axes")
     void testUnitSlopeExact() {
@@ -27,6 +29,7 @@ public class Phase1DerivativeStencilTest {
             "a 2-block span of a unit slope must divide to exactly 1.0");
         assertEquals(1.0, DerivativeSampler.gradientZ(9.0, 11.0, 1.0), 0.0);
     }
+
 
     @Test
     @DisplayName("Tilted Plane: H = 0.3x - 0.2z reproduces both analytic gradient components")
@@ -41,6 +44,7 @@ public class Phase1DerivativeStencilTest {
         assertEquals(-0.2, DerivativeSampler.gradientZ(hNorth, hSouth, 1.0), EPS);
     }
 
+
     @Test
     @DisplayName("Non-positive Stencil Spacing Rejected Before Division")
     void testNonPositiveStepRejected() {
@@ -48,6 +52,7 @@ public class Phase1DerivativeStencilTest {
         assertThrows(IllegalArgumentException.class, () -> DerivativeSampler.gradientZ(1.0, 3.0, -1.0));
         assertThrows(IllegalArgumentException.class, () -> DerivativeSampler.laplacian(1.0, 1.0, 1.0, 1.0, 1.0, 0.0));
     }
+
 
     @Test
     @DisplayName("Flat Surface: every stencil is exactly zero")
@@ -59,6 +64,7 @@ public class Phase1DerivativeStencilTest {
         assertEquals(0.0, DerivativeSampler.magnitude(0.0, 0.0), 0.0);
     }
 
+
     @Test
     @DisplayName("Linear Surface: 5-point Laplacian is exactly zero")
     void testLinearSurfaceLaplacian() {
@@ -69,6 +75,7 @@ public class Phase1DerivativeStencilTest {
         double hE = 0.5 * 11.0 + 0.25 * 10.0;
         assertEquals(0.0, DerivativeSampler.laplacian(hc, hN, hS, hW, hE, 1.0), EPS);
     }
+
 
     @Test
     @DisplayName("Quadratic Bowl: 5-point Laplacian equals 2 * H'' (spec exactness claim)")
@@ -86,6 +93,7 @@ public class Phase1DerivativeStencilTest {
         assertEquals(2.0 * k, lap, EPS, "5-point stencil is exact for quadratic surfaces");
     }
 
+
     @Test
     @DisplayName("Quadratic Peak: 5-point Laplacian equals -2 * H''")
     void testQuadraticPeakLaplacian() {
@@ -101,6 +109,7 @@ public class Phase1DerivativeStencilTest {
             1.0);
         assertEquals(-2.0 * k, lap, EPS);
     }
+
 
     @Test
     @DisplayName("Magnitude: (3, 4) yields |∇H| = 5 and is sign-invariant")

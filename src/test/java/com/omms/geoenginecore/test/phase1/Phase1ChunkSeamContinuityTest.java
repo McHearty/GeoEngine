@@ -6,6 +6,7 @@ import com.omms.geoenginecore.math.GeoSample;
 import com.omms.geoenginecore.math.ScalarFieldKernel;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -61,6 +62,7 @@ public class Phase1ChunkSeamContinuityTest {
     private static final int[] OFFSETS = {0, 7, 15};
     private static final double WORLD_MIN_Y = -64.0;
 
+
     @Test
     @DisplayName("X-direction chunk seams: every field continuous within Lipschitz bounds")
     void testXSeamContinuity() {
@@ -73,6 +75,7 @@ public class Phase1ChunkSeamContinuityTest {
             }
         }
     }
+
 
     @Test
     @DisplayName("Z-direction chunk seams: every field continuous within Lipschitz bounds")

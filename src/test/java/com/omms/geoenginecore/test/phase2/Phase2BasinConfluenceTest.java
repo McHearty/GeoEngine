@@ -11,6 +11,7 @@ import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -88,6 +89,7 @@ public class Phase2BasinConfluenceTest {
      * contributes the base unit). Stable IDs are distinct and
      * non-zero (TECHSPEC §222, §26, §80).
      */
+
     @Test
     @DisplayName("Phase-2 Acceptance: deterministic basin identification (disjoint, complete, mass-conserving)")
     void testBasinsPartitionCells() {
@@ -157,6 +159,7 @@ public class Phase2BasinConfluenceTest {
      * the enumeration is deterministic (ascending lattice order)
      * with world coordinates matching the z-major lattice.
      */
+
     @Test
     @DisplayName("Phase-2 Acceptance: deterministic confluences (first-class detection, stable IDs)")
     void testConfluencesFirstClass() {
@@ -209,6 +212,7 @@ public class Phase2BasinConfluenceTest {
      * same chunk (no chunk-generation ordering dependence, TECHSPEC
      * §222), and the full-column sample carries the same stable IDs.
      */
+
     @Test
     @DisplayName("Phase-2 Acceptance: basin/confluence IDs bit-exact across instances and 16 threads")
     void testDeterministicBasinConfluenceIds() throws Exception {
@@ -268,6 +272,7 @@ public class Phase2BasinConfluenceTest {
      * Stable IDs never collide across worlds or generator-version
      * (configuration) variants (TECHSPEC §80).
      */
+
     @Test
     @DisplayName("Phase-2 Acceptance: stable IDs scoped — no collision across seeds or generator versions")
     void testStableIdsScoped() {

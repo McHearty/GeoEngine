@@ -6,6 +6,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.defaultConfig;
 import static org.junit.jupiter.api.Assertions.*;
@@ -17,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * The maximum allowed discontinuity is 8 blocks (TECHSPEC requirement).
  */
 public class InvariantSeamContinuityTest {
+
+    @Tag("invariant")
 
     @Test
     @DisplayName("C2: Seam continuity - adjacent chunks share continuous heightmaps")

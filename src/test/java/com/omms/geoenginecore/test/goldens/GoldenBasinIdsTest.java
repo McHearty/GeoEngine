@@ -5,6 +5,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import java.io.*;
 import java.nio.file.*;
@@ -26,11 +27,15 @@ public class GoldenBasinIdsTest {
     private static final int GOLDEN_CHUNK_X = 64;
     private static final int GOLDEN_CHUNK_Z = 64;
 
+    @Tag("golden")
+
     @Test
     @DisplayName("P-H-02: Basin ID grid matches golden")
     void testBasinIdGolden() throws IOException {
         testIdGridGolden("basin_ids", sp -> sp.basinIdGrid);
     }
+
+    @Tag("golden")
 
     @Test
     @DisplayName("P-H-02: Confluence ID grid matches golden")

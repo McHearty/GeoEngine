@@ -4,6 +4,7 @@ import com.omms.geoenginecore.hydrology.ChannelField;
 import com.omms.geoenginecore.hydrology.RiverField;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.defaultConfig;
 import static org.junit.jupiter.api.Assertions.*;
@@ -17,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
 public class PropertyChannelThresholdTest {
 
     private static final double EPSILON = 1e-9;
+
+    @Tag("property")
 
     @Test
     @DisplayName("P-M-03: Incision threshold boundary - no incision at A_f = 1.8")
@@ -33,6 +36,8 @@ public class PropertyChannelThresholdTest {
         assertTrue(incisionAboveThreshold > 0.0,
                 "Incision should be non-zero just above the threshold");
     }
+
+    @Tag("property")
 
     @Test
     @DisplayName("P-M-03: Channel width threshold boundary - no width at A_f < 2.5")

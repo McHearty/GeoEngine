@@ -14,6 +14,7 @@ import com.omms.geoenginecore.raster.SectionClassifier;
 import com.omms.geoenginecore.raster.SectionClassification;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -43,6 +44,7 @@ public class Phase1FinitenessSweepTest {
         "simdYVals", "simdWVals"
     };
 
+
     @Test
     @DisplayName("Scratchpad Finiteness Sweep: every grid finite across all dimensions, seeds, and positions")
     void testScratchpadFinitenessSweep() {
@@ -64,6 +66,7 @@ public class Phase1FinitenessSweepTest {
         }
     }
 
+
     @Test
     @DisplayName("Full-Column Finiteness Sweep: every GeoSample field finite and in domain")
     void testSampleFinitenessSweep() {
@@ -82,6 +85,7 @@ public class Phase1FinitenessSweepTest {
             }
         }
     }
+
 
     @Test
     @DisplayName("Section Classification Invariants: totality, AIR above the surface+band, SOLID/BAND below")

@@ -5,6 +5,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -31,17 +32,23 @@ public class GoldenHydrologyGridsTest {
     private static final int GOLDEN_CHUNK_X = 64;
     private static final int GOLDEN_CHUNK_Z = 64;
 
+    @Tag("golden")
+
     @Test
     @DisplayName("P-H-01: Flow accumulation grid matches golden")
     void testFlowAccumulationGolden() throws IOException {
         testGridGolden("flow_acc", sp -> sp.flowAccGrid);
     }
 
+    @Tag("golden")
+
     @Test
     @DisplayName("P-H-01: River incision grid matches golden")
     void testRiverIncisionGolden() throws IOException {
         testGridGolden("river_incision", sp -> sp.riverIncisionGrid);
     }
+
+    @Tag("golden")
 
     @Test
     @DisplayName("P-H-01: Surface height grid matches golden")

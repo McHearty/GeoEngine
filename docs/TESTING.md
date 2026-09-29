@@ -33,6 +33,28 @@ The GeoEngine test suite validates the correctness of the bounded deterministic 
 ./gradlew test -Dupdate.goldens=true
 ```
 
+### Tag-filtered test tasks
+
+| Task | Description |
+|------|-------------|
+| `test` | All tests (default) |
+| `testMust` | MUST-tagged tests only (fast CI gate) |
+| `testInvariants` | Cross-phase invariant tests |
+| `testProperty` | Property/metamorphic tests |
+| `testGolden` | Golden regression tests |
+| `testPerf` | Performance tests (report-only) |
+| `testTimeout` | Timeout/reliability tests |
+
+Example: Run only the fast CI gate tests:
+```bash
+./gradlew testMust
+```
+
+Example: Run invariant tests after a math change:
+```bash
+./gradlew testInvariants
+```
+
 ## Test Packages
 
 ```

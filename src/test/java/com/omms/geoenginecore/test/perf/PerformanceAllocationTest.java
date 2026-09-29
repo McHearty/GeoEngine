@@ -5,6 +5,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Timeout;
 
 import java.lang.management.ManagementFactory;
@@ -22,6 +23,7 @@ import static com.omms.geoenginecore.test.fixtures.TestFixtures.*;
 public class PerformanceAllocationTest {
 
     private static final MemoryMXBean MEMORY_MX = ManagementFactory.getMemoryMXBean();
+
 
     @Test
     @Timeout(value = 30, unit = TimeUnit.SECONDS)

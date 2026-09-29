@@ -11,6 +11,7 @@ import com.omms.geoenginecore.test.fixtures.TestFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -47,6 +48,9 @@ public class Phase2RiverCarvingTest {
      * at least one column must have river incision R ≥ EPS_R (1.0).
      * If this fails, the river generation pipeline is broken.
      */
+    @Tag("must")
+    @Tag("phase2")
+
     @Test
     @DisplayName("P2-10: Non-zero river carving over full hydrology region")
     void testNonZeroCarving_overHydrologyRegion() {
@@ -70,6 +74,9 @@ public class Phase2RiverCarvingTest {
      * incision: | (hPre - R + S) - finalSurface | < 1e-9 (coastal off).
      * This validates that incision actually lowers the surface.
      */
+    @Tag("must")
+    @Tag("phase2")
+
     @Test
     @DisplayName("P2-11: Incision couples to surface lowering (Hf coupling)")
     void testHfCoupling_forCarvedColumns() {
@@ -102,6 +109,9 @@ public class Phase2RiverCarvingTest {
      * Require R_c > R_bank ≥ 0 and R outside width == 0. This validates
      * the U-curve channel cross-section (TECHSPEC §29).
      */
+    @Tag("must")
+    @Tag("phase2")
+
     @Test
     @DisplayName("P2-12: U-curve channel corridor shape")
     void testCorridorShape() {
@@ -143,6 +153,9 @@ public class Phase2RiverCarvingTest {
      * A_f > 2.5 → R > 0 and width > 0.
      * This validates the channel initiation thresholds (TECHSPEC §28).
      */
+    @Tag("must")
+    @Tag("phase2")
+
     @Test
     @DisplayName("P2-13: Channel initiation thresholds")
     void testThresholds() {
@@ -180,6 +193,9 @@ public class Phase2RiverCarvingTest {
      * <p>Evaluate channel factor across a range of flow accumulations
      * and distances; never outside [0, 1].
      */
+    @Tag("must")
+    @Tag("phase2")
+
     @Test
     @DisplayName("P2-14: Channel factor bounded in [0, 1]")
     void testChannelFactorBounded() {

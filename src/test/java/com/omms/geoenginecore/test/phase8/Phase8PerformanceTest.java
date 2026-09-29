@@ -12,6 +12,7 @@ import com.omms.geoenginecore.simd.VectorFieldKernel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -48,6 +49,7 @@ public class Phase8PerformanceTest {
      * allocations that precede a hot method's C2 compilation; the
      * invariant is on steady state, not on the first window.
      */
+
     @Test
     @DisplayName("Invariant §62: True Zero Steady-State Heap Allocation at Source Level")
     void testZeroSteadyStateAllocation() {
@@ -101,6 +103,7 @@ public class Phase8PerformanceTest {
      * |Hs - Hv| ≤ 1e-5 (TECHSPEC §166, §170); skipped when the
      * incubator Vector API is unavailable.
      */
+
     @Test
     @DisplayName("Invariant §71: Scalar vs Vector Numerical Parity Under Unified Process Stack (|Hs - Hv| <= 1e-5)")
     void testScalarVectorNumericalParity() {
@@ -142,6 +145,7 @@ public class Phase8PerformanceTest {
      * (0.0 tolerance), and the LRU evicts the oldest entry when
      * the 32-entry pool overflows (TECHSPEC §165, §170).
      */
+
     @Test
     @DisplayName("Invariant §77 & §160: Macro Cache Bitwise Idempotency and Eviction")
     void testMacroCacheIdempotency() {

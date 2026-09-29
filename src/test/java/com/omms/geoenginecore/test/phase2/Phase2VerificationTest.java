@@ -6,6 +6,7 @@ import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,6 +34,7 @@ public class Phase2VerificationTest {
      * 0 ≤ S ≤ E_total everywhere in a real pipeline raster
      * (TECHSPEC §108).
      */
+
     @Test
     @DisplayName("Phase-2 Acceptance: Deposition strictly within budget (0 <= S <= E_total)")
     void testRealPipelineDepositionBudget() {
@@ -54,6 +56,7 @@ public class Phase2VerificationTest {
      * Accumulation and incision stay close across the X chunk
      * boundary (TECHSPEC §136): |ΔA_f| < 1.5, |ΔR| < 4.0.
      */
+
     @Test
     @DisplayName("Phase-2 Acceptance: Continuous River Accumulation Across Chunk Boundary")
     void testRiverContinuityAcrossChunkBoundary() {
@@ -80,6 +83,7 @@ public class Phase2VerificationTest {
      * {@code evaluateFullColumn} fills a reusable sample with
      * finite, bounded values for biome/structure queries.
      */
+
     @Test
     @DisplayName("Phase-2 Acceptance: evaluateFullColumn populates sample for biome/structure queries")
     void testEvaluateFullColumnPopulatesSample() {
@@ -98,6 +102,7 @@ public class Phase2VerificationTest {
      * hydrology region (TECHSPEC §28: R = min(R_base, R_max); Phase-2
      * acceptance "bounded incision").
      */
+
     @Test
     @DisplayName("Phase-2 Acceptance: Incision bounded (0 <= R <= R_max)")
     void testIncisionBounded() {

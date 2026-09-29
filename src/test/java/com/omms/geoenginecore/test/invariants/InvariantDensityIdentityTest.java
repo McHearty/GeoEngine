@@ -6,6 +6,7 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static com.omms.geoenginecore.test.fixtures.TestFixtures.defaultConfig;
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * (Erosion and incision are already factored into H0 by the pipeline.)
  */
 public class InvariantDensityIdentityTest {
+
+    @Tag("invariant")
 
     @Test
     @DisplayName("C4: Surface height identity - Hf = H0 + deposition")
