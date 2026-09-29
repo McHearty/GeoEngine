@@ -235,6 +235,74 @@ public final class DrainageRouter {
         return ChannelField.corridorFactor(halfWidth, best);
     }
 
+    /**
+     * Evaluate the channel factor with meander applied to the centerline.
+     * The meander offset is computed per-lattice-vertex and applied to the
+     * distance calculation, producing a meandered thalweg.
+     *
+     * @param graph routing lattice
+     * @param routedCell column's routing cell
+     * @param flowAcc flow accumulation A_f
+     * @param channelOrder channel order (0-4)
+     * @param slope local channel slope
+     * @param wx world-space X
+     * @param wz world-space Z
+     * @param seed world seed
+     * @param basinId drainage basin ID
+     * @return F_channel ∈ [0, 1] with meander applied
+     */
+    public double evaluateChannelFactorMeandered(DrainageGraph graph, int routedCell,
+                                                  double flowAcc, int channelOrder, double slope,
+                                                  double wx, double wz, long seed, long basinId) {
+        double width = ChannelField.getWidth(flowAcc);
+        if (width <= 0.0) {
+            return 0.0;
+        }
+        double halfWidth = width * 0.5;
+
+        // Compute distance to the meandered centerline
+        double best = pointDistance(wx, wz,
+            graph.latticeX(routedCell) + MeanderField.offset(channelOrder, slope, halfWidth,
+                seed, basinId, 0.0), graph.latticeZ(routedCell));
+
+        if (best > halfWidth + WALK_MARGIN) {
+            return 0.0;
+        }
+
+        int cur = routedCell;
+        double arcLength = 0.0;
+        while (cur >= 0) {
+            int next = graph.receiverIndex[cur];
+            if (next < 0) {
+                break;
+            }
+            // Compute meandered segment endpoints
+            double x1 = graph.latticeX(cur);
+            double z1 = graph.latticeZ(cur);
+            double x2 = graph.latticeX(next);
+            double z2 = graph.latticeZ(next);
+
+            // Apply meander offset at each vertex
+            double offset1 = MeanderField.offset(channelOrder, slope, halfWidth,
+                seed, basinId, arcLength);
+            double offset2 = MeanderField.offset(channelOrder, slope, halfWidth,
+                seed, basinId, arcLength + DrainageGraph.CELL_SIZE);
+
+            // Compute distance to meandered segment
+            best = Math.min(best, segmentDistance(
+                wx, wz, x1 + offset1, z1, x2 + offset2, z2));
+
+            if (best < halfWidth
+                && pointDistance(wx, wz, x2 + offset2, z2) > halfWidth + WALK_MARGIN) {
+                break;
+            }
+
+            arcLength += DrainageGraph.CELL_SIZE;
+            cur = next;
+        }
+        return ChannelField.corridorFactor(halfWidth, best);
+    }
+
     /** Strict bound on one D8 hop (16√2 ≈ 22.63 blocks), in blocks. */
     private static final double WALK_MARGIN = 23.0;
 

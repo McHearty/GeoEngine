@@ -58,6 +58,18 @@ public final class GeoSample {
     public double finalSurface;
     /** Local river water level for inland rivers above sea level (TECHSPEC §149). */
     public int waterSurfaceLevel;
+    /** Channel order 0-4 (0=overland, 1=creek, 2=feeder, 3=river, 4=arterial). */
+    public byte channelOrder;
+    /** Lateral meander offset X (blocks). */
+    public float meanderOffsetX;
+    /** Lateral meander offset Z (blocks). */
+    public float meanderOffsetZ;
+    /** Distance to meandered thalweg (blocks). */
+    public float distanceToThalweg;
+    /** Channel half-width (blocks). */
+    public float channelHalfWidth;
+    /** Bitfield of §31 features present at column. */
+    public byte featureMask;
 
     /** X component of ∇H evaluated on the pre-fluvial surface (TECHSPEC §37). */
     public double gradX;

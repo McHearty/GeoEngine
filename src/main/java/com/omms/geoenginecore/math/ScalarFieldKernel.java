@@ -298,6 +298,23 @@ public final class ScalarFieldKernel implements FieldKernel {
         sample.basinId = basinId;
         sample.confluenceId = confluenceId;
         sample.riverIncision = incision;
+
+        // Channel order classification (Phase 9 spec §2)
+        if (flowAcc < 2.5) {
+            sample.channelOrder = 0; // Overland
+        } else if (flowAcc < 8.0) {
+            sample.channelOrder = 1; // Creek / Stream
+        } else if (flowAcc < 25.0) {
+            sample.channelOrder = 2; // Feeder / Tributary
+        } else if (flowAcc < 80.0) {
+            sample.channelOrder = 3; // River (trunk)
+        } else {
+            sample.channelOrder = 4; // Arterial
+        }
+
+        // Channel half-width (used by adapter for corridor tests)
+        sample.channelHalfWidth = (float) com.omms.geoenginecore.hydrology.ChannelField.getWidth(flowAcc);
+
         sample.hPre = hPre;
         double hStar = hPre - incision;
 
@@ -334,6 +351,22 @@ public final class ScalarFieldKernel implements FieldKernel {
             hFinal += coastalField.evaluateWaveCutPlatform(hFinal);
         }
         sample.finalSurface = hFinal;
+
+        // Water surface level computation (Phase 9 spec §6.1)
+        if (sample.channelOrder == 0 || hFinal <= config.seaLevel()) {
+            sample.waterSurfaceLevel = 0; // No channel water
+        } else {
+            // Freeboard scales with channel order (0-2 blocks)
+            double freeboard = 0.0;
+            if (sample.channelOrder == 1) {
+                freeboard = 0.5; // Creek
+            } else if (sample.channelOrder == 2) {
+                freeboard = 1.0; // Feeder
+            } else {
+                freeboard = 1.5; // River / Arterial
+            }
+            sample.waterSurfaceLevel = (int) Math.round(hFinal + freeboard);
+        }
 
         // Diagonal samples for 9-point Hessian curvature stencil
         double hPreNW = evaluatePreFluvialSurface(wx - delta, wz - delta, evaluatePureH0(wx - delta, wz - delta), sample.temperature, sample.humidity, baseSlope);
@@ -601,6 +634,34 @@ public final class ScalarFieldKernel implements FieldKernel {
                 scratchpad.hPreGrid[cIdx] = hPre;
                 scratchpad.depositionGrid[cIdx] = deposition;
                 scratchpad.surfaceGrid[cIdx] = hFinal;
+
+                // Channel order classification (Phase 9 spec §2)
+                byte order;
+                if (flowAcc < 2.5) {
+                    order = 0;
+                } else if (flowAcc < 8.0) {
+                    order = 1;
+                } else if (flowAcc < 25.0) {
+                    order = 2;
+                } else if (flowAcc < 80.0) {
+                    order = 3;
+                } else {
+                    order = 4;
+                }
+                scratchpad.channelOrderGrid[cIdx] = order;
+
+                // Water surface level (Phase 9 spec §6.1)
+                if (order == 0 || hFinal <= config.seaLevel()) {
+                    scratchpad.waterSurfaceGrid[cIdx] = 0;
+                } else {
+                    double freeboard = 0.5;
+                    if (order == 2) {
+                        freeboard = 1.0;
+                    } else if (order >= 3) {
+                        freeboard = 1.5;
+                    }
+                    scratchpad.waterSurfaceGrid[cIdx] = (int) Math.round(hFinal + freeboard);
+                }
             }
         }
 

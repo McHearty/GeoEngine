@@ -76,6 +76,10 @@ public final class WorkerScratchpad {
     public final long[] confluenceIdGrid = new long[CHUNK_SURFACE_SIZE];
     /** Equilibrium deposition S per column (TECHSPEC §32-§34). */
     public final double[] depositionGrid = new double[CHUNK_SURFACE_SIZE];
+    /** Channel order per column (0-4). */
+    public final byte[] channelOrderGrid = new byte[CHUNK_SURFACE_SIZE];
+    /** Water surface level per column (0 = none). */
+    public final int[] waterSurfaceGrid = new int[CHUNK_SURFACE_SIZE];
     /** Bit-packed landform classification per column. */
     public final int[] classificationBitsGrid = new int[CHUNK_SURFACE_SIZE];
 
