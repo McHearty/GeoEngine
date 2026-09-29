@@ -168,8 +168,10 @@ public final class DrainageRouter {
      * @return routing cell index in [0, TOTAL_CELLS)
      */
     public int cellIndexFor(int rx, int rz, double wx, double wz) {
-        int gx = (int) Math.floor((wx - (rx * REGION_SPAN)) / (double) DrainageGraph.CELL_SIZE);
-        int gz = (int) Math.floor((wz - (rz * REGION_SPAN)) / (double) DrainageGraph.CELL_SIZE);
+        int gx = (int) Math.floor((wx - (rx * REGION_SPAN)) / (double) DrainageGraph.CELL_SIZE)
+            + DrainageGraph.HALO_CELLS;
+        int gz = (int) Math.floor((wz - (rz * REGION_SPAN)) / (double) DrainageGraph.CELL_SIZE)
+            + DrainageGraph.HALO_CELLS;
         gx = GeoMath.clamp(gx, 0, DrainageGraph.GRID_DIM - 1);
         gz = GeoMath.clamp(gz, 0, DrainageGraph.GRID_DIM - 1);
         return gz * DrainageGraph.GRID_DIM + gx;

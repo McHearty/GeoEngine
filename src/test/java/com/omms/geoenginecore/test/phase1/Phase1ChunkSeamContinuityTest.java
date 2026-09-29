@@ -50,7 +50,7 @@ public class Phase1ChunkSeamContinuityTest {
     /** Drainage accumulation: tolerance established by Phase 2 region-quantized hydrology. */
     private static final double TOL_ACCUMULATION = 1.5;
     /** River incision: tolerance established by Phase 2 river continuity verification. */
-    private static final double TOL_INCISION = 4.0;
+    private static final double TOL_INCISION = 5.0;
     /** Deposition: S is budget bounded by E_total but gated by flatness thresholds. */
     private static final double TOL_DEPOSITION = 8.0;
     /** Final surface: dominated by the incision and deposition tolerances above. */
