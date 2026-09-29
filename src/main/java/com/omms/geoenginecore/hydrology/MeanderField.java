@@ -44,10 +44,11 @@ public final class MeanderField {
     }
 
     /**
-     * Compute the meander phase from seed, basin ID, and arc length.
+     * Compute the meander phase from seed and basin ID.
      * Uses SplitMix64-style mixing for deterministic pseudo-random phase.
+     * The phase is constant for the entire channel.
      */
-    public static double phase(long seed, long basinId, double arcLength) {
+    public static double phase(long seed, long basinId) {
         // Mix seed and basin ID
         long mixed = seed ^ (basinId * 0x9E3779B97F4A7C15L);
         mixed = (mixed ^ (mixed >>> 30)) * 0xBF58476D1CE4E5B9L;
@@ -76,7 +77,7 @@ public final class MeanderField {
         }
         double wavelength = wavelengthForOrder(order);
         double amplitude = amplitudeForOrder(order, slope, halfWidth);
-        double phaseVal = phase(seed, basinId, arcLength);
+        double phaseVal = phase(seed, basinId);
         // Sinusoidal meander
         return amplitude * Math.sin(2.0 * Math.PI * arcLength / wavelength + phaseVal);
     }
