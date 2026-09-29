@@ -36,6 +36,8 @@ public class Phase3VerificationTest {
      * false BAND/SOLID (TECHSPEC §147).
      */
 
+    @Tag("must")
+    @Tag("phase3")
     @Test
     @DisplayName("Conservative Section Classifier: No False AIR above terrain bounds")
     void testSectionClassifierSafety() {
