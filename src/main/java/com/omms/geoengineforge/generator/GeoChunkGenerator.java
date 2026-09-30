@@ -1,6 +1,9 @@
 package com.omms.geoengineforge.generator;
 
 import com.omms.geoenginecore.dimension.DimensionProfile;
+import com.omms.geoenginecore.dimension.EndProfile;
+import com.omms.geoenginecore.dimension.NetherProfile;
+import com.omms.geoenginecore.dimension.OverworldProfile;
 import com.omms.geoenginecore.feature.SpecialFeatureDetector;
 import com.omms.geoenginecore.math.FieldKernel;
 import com.omms.geoenginecore.math.GeoConfig;
@@ -8,6 +11,8 @@ import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import com.omms.geoenginecore.raster.SectionClassifier;
 import com.omms.geoenginecore.simd.KernelProvider;
+import com.omms.geoengineforge.config.GeoConfigCodec;
+import com.omms.geoengineforge.config.GeoEngineConfig;
 import com.omms.geoengineforge.feature.SpecialFeatureGenerator;
 import com.omms.geoengineforge.integration.GeoDimensionProfile;
 import com.omms.geoengineforge.raster.ChunkRasterizer;
@@ -63,21 +68,29 @@ import java.util.concurrent.CompletableFuture;
  * world is fully field-driven (TECHSPEC §210).
  */
 public class GeoChunkGenerator extends ChunkGenerator {
-    /** Serialization codec: (biome source, noise settings, seed, dimension id). */
+    /** Serialization codec: (biome source, noise settings, seed, dimension id, config). */
     public static final MapCodec<GeoChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(instance ->
         instance.group(
             BiomeSource.CODEC.fieldOf("biome_source").forGetter((GeoChunkGenerator gen) -> gen.biomeSource),
             NoiseGeneratorSettings.CODEC.optionalFieldOf("settings").forGetter((GeoChunkGenerator gen) -> Optional.of(gen.settings)),
             Codec.LONG.optionalFieldOf("seed", 0L).forGetter((GeoChunkGenerator gen) -> gen.worldSeed),
             Codec.INT.optionalFieldOf("dimension_id", 0).forGetter((GeoChunkGenerator gen) -> gen.dimensionId),
+            GeoConfigCodec.CODEC.optionalFieldOf("config").forGetter((GeoChunkGenerator gen) -> Optional.of(gen.config)),
+            
             RegistryOps.<NoiseGeneratorSettings, GeoChunkGenerator>retrieveGetter(Registries.NOISE_SETTINGS)
-        ).apply(instance, (biomeSource, optSettings, seed, dimId, settingsGetter) -> {
+        ).apply(instance, (biomeSource, optSettings, seed, dimId, optConfig, settingsGetter) -> {
             Holder<NoiseGeneratorSettings> resolvedSettings = optSettings.orElseGet(() -> {
                 if (dimId == 1) return settingsGetter.getOrThrow(NoiseGeneratorSettings.NETHER);
                 if (dimId == 2) return settingsGetter.getOrThrow(NoiseGeneratorSettings.END);
                 return settingsGetter.getOrThrow(NoiseGeneratorSettings.OVERWORLD);
             });
-            return new GeoChunkGenerator(biomeSource, resolvedSettings, seed, dimId);
+            GeoConfig resolvedConfig = optConfig.orElseGet(() -> {
+                int version = 1;
+                if (dimId == 1) return new NetherProfile(version).getConfig();
+                if (dimId == 2) return new EndProfile(version).getConfig();
+                return GeoEngineConfig.getActiveOverworldConfig(version);
+            });
+            return new GeoChunkGenerator(biomeSource, resolvedSettings, seed, dimId, resolvedConfig);
         })
     );
 
@@ -107,20 +120,34 @@ public class GeoChunkGenerator extends ChunkGenerator {
      * @param settings resolved noise generator settings
      * @param worldSeed world seed
      * @param dimensionId dimension id: 0 overworld, 1 nether, 2 end
+     * @param config validated GeoConfig
      */
     public GeoChunkGenerator(
-        BiomeSource biomeSource, 
-        Holder<NoiseGeneratorSettings> settings, 
-        long worldSeed, 
-        int dimensionId
+        BiomeSource biomeSource,
+        Holder<NoiseGeneratorSettings> settings,
+        long worldSeed,
+        int dimensionId,
+        GeoConfig config
     ) {
         super(biomeSource);
         this.worldSeed = worldSeed;
         this.dimensionId = dimensionId;
         this.settings = settings;
 
-        this.profile = GeoDimensionProfile.getProfileFor(dimensionId, 1);
-        this.config = this.profile.getConfig();
+        // Create profile from config for dimension-specific defaults
+        this.config = config;
+        int version = config.generatorVersion();
+        switch (dimensionId) {
+            case 1:
+                this.profile = new NetherProfile(version);
+                break;
+            case 2:
+                this.profile = new EndProfile(version);
+                break;
+            default:
+                this.profile = new OverworldProfile(config);
+                break;
+        }
 
         NoiseGeneratorSettings noiseSettings = settings.value();
         this.materialResolver = new MaterialResolver(noiseSettings.defaultBlock(), noiseSettings.defaultFluid(), noiseSettings.seaLevel());

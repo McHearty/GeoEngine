@@ -46,7 +46,7 @@ public class Phase1CoreVerificationTest {
     @DisplayName("Configuration validation")
     void testConfigurationValidation() {
         assertThrows(IllegalArgumentException.class, () -> 
-            new GeoConfig(1, 0, 100, 50, 64, 0.001, 0.002, 0.003, 100, 100, 100, 2.0, 0.001, 10.0, 0.5, 0.001, 0.001, 0.001, 0.6, 1.4, 0.001, 10.0, 16.0, 16, 48.0, 0.35, -40, 128));
+            new GeoConfig(1, 0, 100, 50, 64, 0.001, 0.002, 0.003, 100, 100, 100, 2.0, 0.001, 10.0, 0.5, 0.001, 0.001, 0.001, 0.6, 1.4, 0.001, 10.0, 16.0, 16, 48.0, 0.35, 1, -40, 128));
     }
 
     /**

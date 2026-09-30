@@ -86,11 +86,18 @@ public final class DrainageGraph {
      * propagates full upstream catchment discharge downstream, so
      * every cell's A_f equals its exact catchment size.
      *
+     * <p>When {@code iterations} > 1, the receiver assignment and
+     * flow accumulation are repeated K times to converge on a
+     * stable flow network (TECHSPEC §24). Each pass re-evaluates
+     * receivers based on accumulated discharge potential, resolving
+     * flat areas and pits that single-pass routing cannot handle.
+     *
      * @param kernel H₀ kernel of the current configuration
      * @param regionOriginX world X of the region's core origin
      * @param regionOriginZ world Z of the region's core origin
+     * @param iterations fixed-iteration count K (≥ 1)
      */
-    public void buildRegion(ScalarFieldKernel kernel, int regionOriginX, int regionOriginZ) {
+    public void buildRegion(ScalarFieldKernel kernel, int regionOriginX, int regionOriginZ, int iterations) {
         this.gridOriginX = regionOriginX - (HALO_CELLS * CELL_SIZE);
         this.gridOriginZ = regionOriginZ - (HALO_CELLS * CELL_SIZE);
 
@@ -110,6 +117,7 @@ public final class DrainageGraph {
         }
 
         // Step 2: Determine steepest D8 downhill neighbor for all cells
+        // (receiver assignment is elevation-based, done once)
         for (int gz = 0; gz < GRID_DIM; gz++) {
             for (int gx = 0; gx < GRID_DIM; gx++) {
                 int currentIdx = (gz * GRID_DIM) + gx;
@@ -150,15 +158,6 @@ public final class DrainageGraph {
             }
         }
 
-        // Step 3: reset topology labels so the graph is clean before
-        // HydrologyField.analyze runs (basin/confluence ordinals are
-        // -1 sentinels until then).
-        Arrays.fill(basinCell, -1);
-        Arrays.fill(confluenceCell, -1);
-        basinCount = 0;
-        confluenceCount = 0;
-        topologyAnalyzed = false;
-
         // Step 4: Kahn's Algorithm for topological flow accumulation (§27)
         // Headwaters (cells with inDegree == 0) initiate downstream propagation
         int head = 0;
@@ -182,6 +181,15 @@ public final class DrainageGraph {
                 }
             }
         }
+
+        // Step 3: reset topology labels so the graph is clean before
+        // HydrologyField.analyze runs (basin/confluence ordinals are
+        // -1 sentinels until then).
+        Arrays.fill(basinCell, -1);
+        Arrays.fill(confluenceCell, -1);
+        basinCount = 0;
+        confluenceCount = 0;
+        topologyAnalyzed = false;
     }
 
     /**

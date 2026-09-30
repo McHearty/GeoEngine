@@ -7,11 +7,13 @@ import com.omms.geoenginecore.math.GeoSample;
 import com.omms.geoenginecore.math.ScalarFieldKernel;
 import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
+import com.omms.geoengineforge.config.GeoConfigCodec;
 import com.omms.geoengineforge.integration.GeoDimensionProfile;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import java.util.Optional;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
@@ -32,13 +34,17 @@ import java.util.stream.Stream;
  * use their standard parameters.
  */
 public final class GeoBiomeSource extends BiomeSource {
-    /** Serialization codec: (seed, dimension id, biome registry). */
+    /** Serialization codec: (seed, dimension id, biome registry, config). */
     public static final MapCodec<GeoBiomeSource> CODEC = RecordCodecBuilder.mapCodec(instance ->
         instance.group(
             Codec.LONG.optionalFieldOf("seed", 0L).forGetter((GeoBiomeSource s) -> s.worldSeed),
             Codec.INT.optionalFieldOf("dimension_id", 0).forGetter((GeoBiomeSource s) -> s.dimensionId),
+            GeoConfigCodec.CODEC.optionalFieldOf("config").forGetter((GeoBiomeSource s) -> Optional.of(s.config)),
             RegistryOps.<Biome, GeoBiomeSource>retrieveGetter(Registries.BIOME)
-        ).apply(instance, (Long seed, Integer dimId, HolderGetter<Biome> biomes) -> new GeoBiomeSource(seed, dimId, biomes))
+        ).apply(instance, (Long seed, Integer dimId, Optional<GeoConfig> optConfig, HolderGetter<Biome> biomes) -> {
+            GeoConfig resolvedConfig = optConfig.orElse(null);
+            return new GeoBiomeSource(seed, dimId, biomes, resolvedConfig);
+        })
     );
 
     /** World seed that roots every seed domain (reseedable). */
@@ -87,21 +93,29 @@ public final class GeoBiomeSource extends BiomeSource {
      * @param biomes biome registry access
      */
     public GeoBiomeSource(long worldSeed, HolderGetter<Biome> biomes) {
-        this(worldSeed, 0, biomes);
+        this(worldSeed, 0, biomes, null);
     }
 
     /**
      * @param worldSeed world seed
      * @param dimensionId dimension id: 0 overworld, 1 nether, 2 end
      * @param biomes biome registry access
+     * @param config validated GeoConfig (or null for default)
      */
-    public GeoBiomeSource(long worldSeed, int dimensionId, HolderGetter<Biome> biomes) {
+    public GeoBiomeSource(long worldSeed, int dimensionId, HolderGetter<Biome> biomes, GeoConfig config) {
         this.worldSeed = worldSeed;
         this.dimensionId = dimensionId;
         this.biomeGetter = biomes;
-        this.profile = GeoDimensionProfile.getProfileFor(dimensionId, 1);
-        this.config = this.profile.getConfig();
-        this.climateClassifier = new ClimateClassifier(config);
+        
+        if (config != null) {
+            this.config = config;
+            this.profile = null;  // Profile not needed when config is provided
+        } else {
+            this.profile = GeoDimensionProfile.getProfileFor(dimensionId, 1);
+            this.config = this.profile.getConfig();
+        }
+        
+        this.climateClassifier = new ClimateClassifier(this.config);
         reseed(worldSeed);
 
         // Vanilla Overworld multi-noise parameter list (includes all ~55 biomes, oceans, caves)

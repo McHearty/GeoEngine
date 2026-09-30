@@ -97,7 +97,8 @@ public final class HydrologyRegionCache {
      */
     public DrainageGraph getOrCompute(
         long worldSeed, long configHash, int regionX, int regionZ,
-        ScalarFieldKernel kernel, int regionOriginX, int regionOriginZ
+        ScalarFieldKernel kernel, int regionOriginX, int regionOriginZ,
+        int drainageIterations
     ) {
         long key = packScopedKey(worldSeed, configHash, regionX, regionZ);
         int stripe = (int) (key & (STRIPE_COUNT - 1));
@@ -117,7 +118,7 @@ public final class HydrologyRegionCache {
         // lock so a concurrent reader never observes a key without its
         // graph.
         DrainageGraph created = new DrainageGraph();
-        created.buildRegion(kernel, regionOriginX, regionOriginZ);
+        created.buildRegion(kernel, regionOriginX, regionOriginZ, drainageIterations);
 
         stripeLocks[stripe].lock();
         try {

@@ -63,6 +63,8 @@ public record GeoConfig(
     double riverMaxIncision,
     /** Steepness of the drainage-accumulation-to-incision transfer function. */
     double riverChannelSteepness,
+    /** Fixed-iteration count K for bounded drainage refinement (TECHSPEC §24). */
+    int drainageIterations,
     /** Inclusive lower Y of the cave placement envelope. */
     int caveMinY,
     /** Upper Y of the cave placement envelope. */
@@ -152,6 +154,9 @@ public record GeoConfig(
         if (riverMaxIncision < 0.0 || riverChannelSteepness <= 0.0) {
             throw new IllegalArgumentException("Invalid river parameters");
         }
+        if (drainageIterations < 1 || drainageIterations > 8) {
+            throw new IllegalArgumentException("drainageIterations must be in [1, 8]");
+        }
     }
 
     /**
@@ -174,6 +179,7 @@ public record GeoConfig(
         h = 31 * h + worldMaxY;
         h = 31 * h + seaLevel;
         h = 31 * h + generatorVersion;
+        h = 31 * h + drainageIterations;
         return h ^ (h >>> 32);
     }
 
@@ -212,6 +218,58 @@ public record GeoConfig(
             16,                 // surfaceBandRadius
             18.0,               // riverMaxIncision: 3-8m stream valleys, max 18m in canyons
             0.15,               // riverChannelSteepness: Progressive incision along drainage paths
+            1,                  // drainageIterations: single pass (TECHSPEC §24)
+            -40,                // caveMinY
+            128                 // caveMaxY
+        );
+    }
+
+    /**
+     * High-relief development preset for visual evaluation (Phase 9 Sprint 0).
+     *
+     * <p>Amplifies continental and mountain-belt energy, increases river
+     * incision capacity for deep trunk valleys, and retains the DEFAULT
+     * erosion baseline. This preset produces dramatically larger relief
+     * than {@link #defaultOverworld(int)} and is intended for in-game
+     * visual QA and screenshot evaluation, not for deterministic test
+     * baselines.
+     *
+     * <p>Changes vs DEFAULT: tectonicAmpA 160→240, tectonicAmpB 50→80,
+     * riverMaxIncision 18→28, baseErosionRate 35→30 (slightly less
+     * flattening). All hard bounds (T_max, world Y, R_max) still enforced.
+     *
+     * @param version generator version to bake into the returned configuration
+     * @return high-relief Overworld configuration
+     */
+    public static GeoConfig targetOverworld(int version) {
+        return new GeoConfig(
+            version,
+            0,                  // dimensionId: 0 (Overworld)
+            -64,                // worldMinY
+            1984,               // worldMaxY
+            64,                 // seaLevel
+            0.0003,             // tectonicFreqLow
+            0.0008,             // tectonicFreqA
+            0.0016,             // tectonicFreqB
+            160.0,              // tectonicAmpLow (same as DEFAULT)
+            240.0,              // tectonicAmpA: stronger mountain belt relief (was 160)
+            80.0,               // tectonicAmpB: stronger foothill ridges (was 50)
+            2.2,                // upliftExponent (same as DEFAULT)
+            0.0005,             // stressFrequency
+            24.0,               // stressAmplitude
+            0.45,               // stressMaxJacobian
+            0.0003,             // epochFrequency
+            0.0004,             // climateTempFrequency
+            0.0004,             // climateHumidFrequency
+            0.6,                // climateMin
+            1.4,                // climateMax
+            0.0012,             // lapseRatePerBlock
+            30.0,               // baseErosionRate: slightly less flattening (was 35)
+            5.0,                // maxWarpAmplitude
+            16,                 // surfaceBandRadius
+            28.0,               // riverMaxIncision: deeper trunk valleys (was 18)
+            0.15,               // riverChannelSteepness
+            2,                  // drainageIterations: two-pass for stabler corridors (was 1)
             -40,                // caveMinY
             128                 // caveMaxY
         );

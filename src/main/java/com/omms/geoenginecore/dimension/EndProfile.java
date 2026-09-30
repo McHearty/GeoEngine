@@ -34,6 +34,7 @@ public final class EndProfile implements DimensionProfile {
             8.0,
             16,
             0.0, 0.01,
+            1,                  // drainageIterations: single pass
             0, 0
         );
     }

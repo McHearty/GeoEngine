@@ -43,6 +43,9 @@ public final class GeoEngineConfig {
     /** 3-D volumetric cliff overhang / rock-grain intensity. */
     public static final ModConfigSpec.DoubleValue CLIFF_OVERHANG_INTENSITY;
 
+    /** Relief profile (default, continental, alpine, canyonlands). */
+    public static final ModConfigSpec.ConfigValue<String> RELIEF_PROFILE;
+
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
 
@@ -52,6 +55,9 @@ public final class GeoEngineConfig {
                   " Changes to this file take effect on next world creation",
                   " or game restart without needing to recompile the mod.",
                   "=====================================================");
+
+        RELIEF_PROFILE = b.comment("Relief profile preset (default, continental, alpine, canyonlands)")
+            .define("relief_profile", "default");
 
         b.push("terrain_scale");
         CONTINENTAL_SCALE = b.comment("Scale of continental landmasses and oceans (0.0 = small islands, 1.0 = vast continents)")

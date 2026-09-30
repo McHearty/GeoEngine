@@ -112,6 +112,7 @@ public final class ScalarFieldKernel implements FieldKernel {
         this.warpField = new WarpField(worldSeed, config);
         this.caveField = new CaveField(worldSeed, config);
         this.drainageRouter = new DrainageRouter();
+        this.drainageRouter.setDrainageIterations(config.drainageIterations());
         this.hydrologyField = new HydrologyField();
 
         this.glacialField = new GlacialField(worldSeed, config);

@@ -36,6 +36,7 @@ public final class NetherProfile implements DimensionProfile {
             12.0,
             16,
             0.0, 0.01,
+            1,                  // drainageIterations: single pass
             10, 110
         );
     }

@@ -99,6 +99,7 @@ public final class GeoConfigNormalizer {
             16,
             maxIncision,
             channelSteepness,
+            1,                  // drainageIterations: single pass
             -40,
             128
         );

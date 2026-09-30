@@ -25,6 +25,8 @@ public final class DrainageRouter {
 
     /** LRU cache of built region graphs. */
     private final HydrologyRegionCache regionCache = new HydrologyRegionCache();
+    /** Fixed-iteration count K for bounded drainage refinement. */
+    private int drainageIterations = 1;
 
     /**
      * Computes the authoritative D8 flow accumulation A_f with
@@ -122,7 +124,7 @@ public final class DrainageRouter {
         // cache without a rebuild.
         int originX = rx * REGION_SPAN;
         int originZ = rz * REGION_SPAN;
-        DrainageGraph graph = regionCache.getOrCompute(worldSeed, configHash, rx, rz, kernel, originX, originZ);
+        DrainageGraph graph = regionCache.getOrCompute(worldSeed, configHash, rx, rz, kernel, originX, originZ, this.drainageIterations);
 
         sp.hydrologyRegionKeys[home] = key;
         sp.hydrologyGraphs[home] = graph;
@@ -135,6 +137,21 @@ public final class DrainageRouter {
      */
     public HydrologyRegionCache getRegionCache() {
         return regionCache;
+    }
+
+    /**
+     * Sets the fixed-iteration count K for bounded drainage
+     * refinement (TECHSPEC §24). Must be called before the first
+     * graph build; subsequent calls invalidate the cache.
+     *
+     * @param iterations iteration count (≥ 1, ≤ 8)
+     */
+    public void setDrainageIterations(int iterations) {
+        if (iterations < 1 || iterations > 8) {
+            throw new IllegalArgumentException("drainageIterations must be in [1, 8]");
+        }
+        this.drainageIterations = iterations;
+        this.regionCache.clear();
     }
 
     /**

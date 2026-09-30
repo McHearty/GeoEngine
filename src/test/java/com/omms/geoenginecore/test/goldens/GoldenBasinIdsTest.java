@@ -44,7 +44,7 @@ public class GoldenBasinIdsTest {
     }
 
     private void testIdGridGolden(String name, IdGridExtractor extractor) throws IOException {
-        boolean updateGoldens = Boolean.getBoolean("update.goldens");
+        boolean updateGoldens = Boolean.getBoolean("update.goldens") || Boolean.getBoolean("GeoEngine.UPDATE_GOLDENS");
 
         // Generate the grid
         ScalarFieldKernel kernel = kernelWithSeed(GOLDEN_SEED);
