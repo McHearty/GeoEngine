@@ -235,4 +235,39 @@ public class Phase2RiverCarvingTest {
         assertTrue(widthAtArterial <= 28.0,
                 "Width at A_f=500 should be capped at 28 blocks, got " + widthAtArterial);
     }
+
+    /**
+     * P2-16: Incision depth variance (Phase 9 Sprint R3).
+     *
+     * <p>With channelSteepness=0.10, incision depth variance should be
+     * reduced: A_f=8→~2 blocks, A_f=20→~6 blocks, A_f=100→~14 blocks.
+     */
+    @Tag("must")
+    @Tag("phase2")
+
+    @Test
+    @DisplayName("P2-16: Incision depth variance")
+    void testIncisionDepthVariance() {
+        RiverField rf = new RiverField(TestFixtures.defaultConfig());
+
+        // At initiation (A_f=9): shallow incision ~2 blocks
+        double incisionAtInitiation = rf.computeIncision(9.0, 0.5, 1.0, 1.0);
+        assertTrue(incisionAtInitiation >= 1.0 && incisionAtInitiation <= 3.0,
+                "Incision at A_f=9 should be 1-3 blocks, got " + incisionAtInitiation);
+
+        // At stream scale (A_f=20): moderate incision ~6 blocks
+        double incisionAtStream = rf.computeIncision(20.0, 0.5, 1.0, 1.0);
+        assertTrue(incisionAtStream >= 4.0 && incisionAtStream <= 8.0,
+                "Incision at A_f=20 should be 4-8 blocks, got " + incisionAtStream);
+
+        // At trunk scale (A_f=100): deep incision ~14 blocks
+        double incisionAtTrunk = rf.computeIncision(100.0, 0.5, 1.0, 1.0);
+        assertTrue(incisionAtTrunk >= 10.0 && incisionAtTrunk <= 18.0,
+                "Incision at A_f=100 should be 10-18 blocks, got " + incisionAtTrunk);
+
+        // Incision depth ratio should be reduced (not 9x)
+        double ratio = incisionAtTrunk / Math.max(1.0, incisionAtInitiation);
+        assertTrue(ratio < 8.0,
+                "Incision depth ratio should be < 8x, got " + ratio + "x");
+    }
 }
