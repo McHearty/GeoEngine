@@ -24,6 +24,7 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
@@ -275,6 +276,9 @@ public class GeoChunkGenerator extends ChunkGenerator {
             this.settings.value().surfaceRule(), genContext
         );
 
+        // Write water blocks into channel voxels (Phase 9 Sprint A)
+        writeChannelWater(chunk, config, scratchpad, originX, originZ);
+
         // Strictly gated special features in the Overworld
         if (dimensionId == 0) {
             materializeSpecialFeatures(chunk, scratchpad, originX, originZ);
@@ -290,6 +294,57 @@ public class GeoChunkGenerator extends ChunkGenerator {
      * @param originX world X of the chunk origin
      * @param originZ world Z of the chunk origin
      */
+    /**
+     * Writes water blocks into channel voxels from the bed up to the
+     * water surface level (Phase 9 Sprint A: Wet Rivers).
+     *
+     * <p>For columns with channelOrder > 0 and waterSurfaceLevel > 0,
+     * this method fills the channel with water from the bed (finalSurface)
+     * up to the water surface level. The water surface is clamped to the
+     * bed to prevent floating water, and the water depth is limited to
+     * prevent infinite water columns.
+     *
+     * @param chunk chunk being generated
+     * @param config GeoEngine configuration
+     * @param sp worker scratchpad holding the fresh chunk raster
+     * @param originX world X of the chunk origin
+     * @param originZ world Z of the chunk origin
+     */
+    private void writeChannelWater(ChunkAccess chunk, GeoConfig config, WorkerScratchpad sp, int originX, int originZ) {
+        for (int lz = 0; lz < 16; lz++) {
+            int wz = originZ + lz;
+            for (int lx = 0; lx < 16; lx++) {
+                int wx = originX + lx;
+                int cIdx = (lz << 4) | lx;
+
+                int channelOrder = sp.channelOrderGrid[cIdx];
+                int waterSurfaceLevel = sp.waterSurfaceGrid[cIdx];
+                if (channelOrder == 0 || waterSurfaceLevel <= 0) {
+                    continue; // No channel water
+                }
+
+                // Get the bed elevation (final surface)
+                double bedElevation = sp.surfaceGrid[cIdx];
+                int bedY = (int) Math.round(bedElevation);
+
+                // Clamp water surface to bed (no floating water)
+                int waterTopY = Math.min(waterSurfaceLevel, bedY + 2);
+                if (waterTopY <= bedY) {
+                    continue; // Water surface at or below bed
+                }
+
+                // Write water blocks from bed+1 up to waterTopY
+                for (int y = bedY + 1; y <= waterTopY; y++) {
+                    BlockPos pos = new BlockPos(wx, y, wz);
+                    BlockState current = chunk.getBlockState(pos);
+                    if (current.isAir()) {
+                        chunk.setBlockState(pos, Blocks.WATER.defaultBlockState(), false);
+                    }
+                }
+            }
+        }
+    }
+
     private void materializeSpecialFeatures(ChunkAccess chunk, WorkerScratchpad sp, int originX, int originZ) {
         SpecialFeatureDetector featureDetector = new SpecialFeatureDetector(config);
         BlockPos.MutableBlockPos mutPos = new BlockPos.MutableBlockPos();
