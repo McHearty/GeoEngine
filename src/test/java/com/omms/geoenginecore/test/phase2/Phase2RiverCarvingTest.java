@@ -203,4 +203,36 @@ public class Phase2RiverCarvingTest {
             }
         }
     }
+
+    /**
+     * P2-15: Width calibration envelope (Phase 9 Sprint R2).
+     *
+     * <p>Verify the recalibrated width formula produces the target
+     * envelope: A_f=8→4, A_f=20→10, A_f=100→25-28 blocks.
+     */
+    @Tag("must")
+    @Tag("phase2")
+
+    @Test
+    @DisplayName("P2-15: Width calibration envelope")
+    void testWidthCalibrationEnvelope() {
+        // At initiation: 4 blocks (target: 4-6)
+        double widthAtInitiation = ChannelField.getWidth(8.0);
+        assertEquals(4.0, widthAtInitiation, 0.1, "Width at A_f=8 should be 4.0");
+
+        // At stream scale: 10 blocks (target: 8-12)
+        double widthAtStream = ChannelField.getWidth(20.0);
+        assertTrue(widthAtStream >= 8.0 && widthAtStream <= 12.0,
+                "Width at A_f=20 should be 8-12 blocks, got " + widthAtStream);
+
+        // At trunk scale: 25-28 blocks (target: 18-28)
+        double widthAtTrunk = ChannelField.getWidth(100.0);
+        assertTrue(widthAtTrunk >= 18.0 && widthAtTrunk <= 28.0,
+                "Width at A_f=100 should be 18-28 blocks, got " + widthAtTrunk);
+
+        // At arterial scale: capped at 28 blocks
+        double widthAtArterial = ChannelField.getWidth(500.0);
+        assertTrue(widthAtArterial <= 28.0,
+                "Width at A_f=500 should be capped at 28 blocks, got " + widthAtArterial);
+    }
 }

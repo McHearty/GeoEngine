@@ -24,8 +24,11 @@ public final class ChannelField {
 
     /**
      * Saturated channel corridor width W(A_f) in blocks
-     * (TECHSPEC §29). Brooks: ~3-5 blocks wide; trunk rivers:
-     * ~16-28 blocks wide.
+     * (TECHSPEC §29). Recalibrated for raw cell-count values
+     * (Phase 9 Sprint R2) with target envelope:
+     * <p>A_f=8 (initiation): 4 blocks
+     * <p>A_f=20 (stream): 10 blocks
+     * <p>A_f=100+ (trunk): 25-28 blocks
      *
      * @param flowAcc flow accumulation proxy A_f
      * @return corridor width in blocks, 0 below the initiation threshold
@@ -33,7 +36,7 @@ public final class ChannelField {
     public static double getWidth(double flowAcc) {
         if (flowAcc < CHANNEL_INITIATION_FLOW) return 0.0;
         double strength = flowAcc - CHANNEL_INITIATION_FLOW;
-        return 3.0 + 25.0 * (1.0 - Math.exp(-strength * 0.18));
+        return 4.0 + 24.0 * (1.0 - Math.exp(-strength * 0.024));
     }
 
     /**
