@@ -99,7 +99,20 @@ public final class GeoDebugCommands {
                     )
                 )
             )
-            // 6. /geoengine test <test_name>
+            // 6. /geoengine debug rivers [radius] [mode]
+            .then(Commands.literal("debug")
+                .then(Commands.literal("rivers")
+                    .executes(ctx -> executeDebugRivers(ctx.getSource(), 64, "orders"))
+                    .then(Commands.argument("radius", IntegerArgumentType.integer(16, 256))
+                        .executes(ctx -> executeDebugRivers(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "radius"), "orders"))
+                        .then(Commands.argument("mode", StringArgumentType.word())
+                            .executes(ctx -> executeDebugRivers(ctx.getSource(),
+                                IntegerArgumentType.getInteger(ctx, "radius"),
+                                StringArgumentType.getString(ctx, "mode"))))
+                    )
+                )
+            )
+            // 7. /geoengine test <test_name>
             .then(Commands.literal("test")
                 .then(Commands.argument("test_name", StringArgumentType.word())
                     .executes(ctx -> executeTest(ctx.getSource(), StringArgumentType.getString(ctx, "test_name"))))
@@ -445,5 +458,91 @@ public final class GeoDebugCommands {
             ), false);
             return 1;
         }
+    }
+
+    /**
+     * /geoengine debug rivers [radius] [mode] (Sprint D).
+     * Spawns particles along river centerlines for network visualization.
+     *
+     * @param source command source
+     * @param radius radius in blocks
+     * @param mode "orders" (color by channel order) or "plain" (single color)
+     * @return brigadier command result
+     */
+    private static int executeDebugRivers(CommandSourceStack source, int radius, String mode) {
+        ServerLevel level = source.getLevel();
+        ChunkGenerator gen = level.getChunkSource().getGenerator();
+
+        if (!(gen instanceof GeoChunkGenerator geoGen)) {
+            source.sendFailure(Component.literal("§cCurrent dimension does not use GeoChunkGenerator!"));
+            return 0;
+        }
+
+        BlockPos center = BlockPos.containing(source.getPosition());
+        double minX = center.getX() - radius;
+        double maxX = center.getX() + radius;
+        double minZ = center.getZ() - radius;
+        double maxZ = center.getZ() + radius;
+
+        // Resolve kernel from generator
+        com.omms.geoenginecore.math.ScalarFieldKernel kernel = null;
+        try {
+            // Use reflection to access the kernel from GeoChunkGenerator
+            java.lang.reflect.Field field = GeoChunkGenerator.class.getDeclaredField("kernel");
+            field.setAccessible(true);
+            kernel = (com.omms.geoenginecore.math.ScalarFieldKernel) field.get(geoGen);
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("§cCould not resolve terrain kernel: " + e.getMessage()));
+            return 0;
+        }
+
+        if (kernel == null) {
+            source.sendFailure(Component.literal("§cTerrain kernel not found in generator"));
+            return 0;
+        }
+
+        // Sample centerlines
+        com.omms.geoenginecore.hydrology.DrainageRouter router = kernel.getDrainageRouter();
+        com.omms.geoenginecore.hydrology.HydrologyField hydrology = kernel.getHydrologyField();
+
+        // Resolve the region graph for this AABB
+        int regionX = (int) Math.floor(minX / com.omms.geoenginecore.hydrology.DrainageRouter.REGION_SPAN);
+        int regionZ = (int) Math.floor(minZ / com.omms.geoenginecore.hydrology.DrainageRouter.REGION_SPAN);
+        com.omms.geoenginecore.hydrology.DrainageGraph graph = router.resolveGraph(
+            kernel, level.getSeed(), kernel.getProfile().getConfig().configHash(), regionX, regionZ);
+
+        // Ensure hydrology analysis has been run
+        hydrology.analyze(graph, level.getSeed(), kernel.getProfile().getConfig().configHash(),
+            0, 1, regionX, regionZ);
+
+        java.util.List<com.omms.geoenginecore.hydrology.RiverDebugSampler.CenterlineSample> samples =
+            com.omms.geoenginecore.hydrology.RiverDebugSampler.sampleRiverCenterlines(
+                graph, hydrology, kernel, minX, minZ, maxX, maxZ);
+
+        source.sendSuccess(() -> Component.literal(
+            "§6[GeoEngine] Spawning §e" + samples.size() + "§r river particles (radius " + radius + " blocks)"), false);
+
+        // Spawn particles
+        for (com.omms.geoenginecore.hydrology.RiverDebugSampler.CenterlineSample s : samples) {
+            // Color by channel order
+            // Use bubble particle for river network visualization
+            // (DustParticleOptions requires Vector3f which has different API in NeoForm)
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.BUBBLE,
+                s.x(), s.y(), s.z(), 1, 0, 0, 0, 0);
+
+            // Extra marker at confluences
+            if (s.confluence()) {
+                level.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
+                    s.x(), s.y() + 1, s.z(), 1, 0, 0, 0, 0);
+            }
+
+            // Extra marker at sinks
+            if (s.sink()) {
+                level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+                    s.x(), s.y() + 1, s.z(), 1, 0, 0, 0, 0);
+            }
+        }
+
+        return 1;
     }
 }
