@@ -82,6 +82,10 @@ public final class WorkerScratchpad {
     public final int[] waterSurfaceGrid = new int[CHUNK_SURFACE_SIZE];
     /** Bit-packed landform classification per column. */
     public final int[] classificationBitsGrid = new int[CHUNK_SURFACE_SIZE];
+    /** Signed distance to thalweg per column (positive = right bank). */
+    public final float[] distanceToThalwegGrid = new float[CHUNK_SURFACE_SIZE];
+    /** Feature mask per column (TECHSPEC §31). */
+    public final byte[] featureMaskGrid = new byte[CHUNK_SURFACE_SIZE];
 
     /** Local river water level for inland rivers above sea level (TECHSPEC §149). */
     public final int[] riverWaterLevelGrid = new int[CHUNK_SURFACE_SIZE];

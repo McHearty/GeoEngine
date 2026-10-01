@@ -713,6 +713,27 @@ public final class ScalarFieldKernel implements FieldKernel {
                 scratchpad.sample.humidity = scratchpad.humidGrid[cIdx];
                 scratchpad.sample.erosionLowering = scratchpad.erosionGrid[cIdx];
                 scratchpad.sample.rawTectonic = scratchpad.macroTectonic[0];
+                scratchpad.sample.distanceToThalweg = scratchpad.distanceToThalwegGrid[cIdx];
+                scratchpad.sample.featureMask = scratchpad.featureMaskGrid[cIdx];
+
+                // Compute signed distance to thalweg for bank asymmetry (Sprint C)
+                int order = scratchpad.channelOrderGrid[cIdx];
+                if (order > 0) {
+                    int regionX = (int) Math.floor(wx / (double) DrainageRouter.REGION_SPAN);
+                    int regionZ = (int) Math.floor(wz / (double) DrainageRouter.REGION_SPAN);
+                    DrainageGraph graph = drainageRouter.resolveGraph(this, worldSeed, config.configHash(), regionX, regionZ);
+                    int routedCell = drainageRouter.cellIndexFor(regionX, regionZ, wx, wz);
+                    scratchpad.distanceToThalwegGrid[cIdx] = (float) drainageRouter.signedDistanceToThalweg(
+                        graph, routedCell, scratchpad.flowAccGrid[cIdx], order,
+                        scratchpad.sample.gradMagnitude, wx, wz, worldSeed, scratchpad.basinIdGrid[cIdx]);
+
+                    // Compute feature mask (TECHSPEC §31)
+                    scratchpad.featureMaskGrid[cIdx] = (byte) FeatureGrammar.computeFeatureMask(
+                        order, scratchpad.flowAccGrid[cIdx], scratchpad.sample.gradMagnitude,
+                        scratchpad.laplacianGrid[cIdx], scratchpad.distanceToThalwegGrid[cIdx],
+                        ChannelField.getWidth(scratchpad.flowAccGrid[cIdx]) * 0.5,
+                        scratchpad.confluenceIdGrid[cIdx] != 0L, false, false, false, 0.0);
+                }
 
                 int bits = landformClassifier.classify(
                     this, scratchpad.sample,

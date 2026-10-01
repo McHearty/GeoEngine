@@ -359,6 +359,76 @@ public final class DrainageRouter {
     private static final double WALK_MARGIN = 23.0;
 
     /**
+     * Compute the signed distance from a point to the meandered thalweg.
+     * Positive = right side (when facing downstream), negative = left side.
+     * This enables bank asymmetry detection (point bar vs cut bank).
+     *
+     * @param graph routing lattice
+     * @param routedCell column's routing cell
+     * @param flowAcc flow accumulation A_f
+     * @param channelOrder channel order (0-4)
+     * @param slope local channel slope
+     * @param wx world-space X
+     * @param wz world-space Z
+     * @param seed world seed
+     * @param basinId drainage basin ID
+     * @return signed distance to thalweg in blocks (positive = right bank)
+     */
+    public double signedDistanceToThalweg(DrainageGraph graph, int routedCell,
+                                          double flowAcc, int channelOrder, double slope,
+                                          double wx, double wz, long seed, long basinId) {
+        double width = ChannelField.getWidth(flowAcc);
+        if (width <= 0.0) {
+            return 0.0;
+        }
+        double halfWidth = width * 0.5;
+
+        int cur = routedCell;
+        double arcLength = 0.0;
+        int hops = 0;
+        double bestDist = Double.MAX_VALUE;
+        double bestSignedDist = 0.0;
+
+        while (cur >= 0 && hops++ < DrainageGraph.TOTAL_CELLS) {
+            int next = graph.receiverIndex[cur];
+            if (next < 0 || next == cur) {
+                break;
+            }
+
+            double x1 = graph.latticeX(cur);
+            double z1 = graph.latticeZ(cur);
+            double x2 = graph.latticeX(next);
+            double z2 = graph.latticeZ(next);
+
+            double dx = x2 - x1;
+            double dz = z2 - z1;
+            double len = Math.sqrt(dx * dx + dz * dz);
+            if (len < 1e-6) {
+                len = 1.0;
+            }
+            double dirX = dx / len;
+            double dirZ = dz / len;
+            double perpX = -dirZ;
+            double perpZ = dirX;
+
+            // Check distance at the start of this segment
+            double dist = pointDistance(wx, wz, x1, z1);
+            if (dist < bestDist) {
+                bestDist = dist;
+                // Signed distance: dot product with perpendicular
+                double toPointX = wx - x1;
+                double toPointZ = wz - z1;
+                bestSignedDist = toPointX * perpX + toPointZ * perpZ;
+            }
+
+            arcLength += len;
+            cur = next;
+        }
+
+        return bestSignedDist;
+    }
+
+    /**
      * Euclidean distance between two world-space points.
      *
      * @param wx X of the first point
