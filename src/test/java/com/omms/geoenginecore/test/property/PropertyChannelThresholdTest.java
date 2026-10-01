@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * P-M-03: Channel initiation threshold boundary conditions.
  *
  * <p>Test the exact boundary conditions at the incision and channel width
- * thresholds (A_f = 1.8 for incision, A_f < 2.5 for width).
+ * thresholds (A_f = 14.0 for incision and width).
  */
 public class PropertyChannelThresholdTest {
 
@@ -22,17 +22,17 @@ public class PropertyChannelThresholdTest {
     @Tag("property")
 
     @Test
-    @DisplayName("P-M-03: Incision threshold boundary - no incision at A_f = 8.0")
+    @DisplayName("P-M-03: Incision threshold boundary - no incision at A_f = 14.0")
     void testIncisionThresholdBoundary() {
         RiverField rf = new RiverField(defaultConfig());
 
-        // At exactly A_f = 8.0, incision should be zero (threshold not exceeded)
-        double incisionAtThreshold = rf.computeIncision(8.0, 0.1, 1.0);
+        // At exactly A_f = 14.0, incision should be zero (threshold not exceeded)
+        double incisionAtThreshold = rf.computeIncision(14.0, 0.1, 1.0);
         assertEquals(0.0, incisionAtThreshold, EPSILON,
-                "Incision should be zero at exactly the threshold A_f=8.0");
+                "Incision should be zero at exactly the threshold A_f=14.0");
 
         // Just above threshold, incision should be non-zero
-        double incisionAboveThreshold = rf.computeIncision(8.01, 0.1, 1.0);
+        double incisionAboveThreshold = rf.computeIncision(14.01, 0.1, 1.0);
         assertTrue(incisionAboveThreshold > 0.0,
                 "Incision should be non-zero just above the threshold");
     }
@@ -40,16 +40,16 @@ public class PropertyChannelThresholdTest {
     @Tag("property")
 
     @Test
-    @DisplayName("P-M-03: Channel width threshold boundary - no width at A_f < 8.0")
+    @DisplayName("P-M-03: Channel width threshold boundary - no width at A_f < 14.0")
     void testWidthThresholdBoundary() {
-        // Below A_f = 8.0, width should be zero
-        double widthBelowThreshold = ChannelField.getWidth(7.99);
+        // Below A_f = 14.0, width should be zero
+        double widthBelowThreshold = ChannelField.getWidth(13.99);
         assertEquals(0.0, widthBelowThreshold, EPSILON,
-                "Width should be zero below the threshold A_f=8.0");
+                "Width should be zero below the threshold A_f=14.0");
 
-        // At A_f = 8.0, width should be non-zero
-        double widthAtThreshold = ChannelField.getWidth(8.0);
+        // At A_f = 14.0, width should be non-zero
+        double widthAtThreshold = ChannelField.getWidth(14.0);
         assertTrue(widthAtThreshold > 0.0,
-                "Width should be non-zero at the threshold A_f=8.0");
+                "Width should be non-zero at the threshold A_f=14.0");
     }
 }

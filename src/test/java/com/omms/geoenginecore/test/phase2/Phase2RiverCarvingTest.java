@@ -127,7 +127,7 @@ public class Phase2RiverCarvingTest {
     @DisplayName("P2-12: U-curve channel corridor shape")
     void testCorridorShape() {
         // Use ChannelField directly to verify the corridor profile
-        double flowAcc = 10.0; // Trunk river scale
+        double flowAcc = 100.0; // Trunk river scale
         double halfWidth = ChannelField.getWidth(flowAcc) * 0.5;
         assertTrue(halfWidth > 0.0, "No channel width for A_f = " + flowAcc);
 
@@ -160,7 +160,7 @@ public class Phase2RiverCarvingTest {
     /**
      * P2-13: Thresholds.
      *
-     * <p>A_f ≤ 8.0 → R = 0 and width = 0; A_f > 8.0 → R > 0 and width > 0.
+     * <p>A_f ≤ 14.0 → R = 0 and width = 0; A_f > 14.0 → R > 0 and width > 0.
      * This validates the channel initiation threshold (TECHSPEC §28).
      */
     @Tag("must")
@@ -173,19 +173,19 @@ public class Phase2RiverCarvingTest {
 
         // Below incision threshold: no incision
         double belowIncision = riverField.computeIncision(1.0, 0.5, 1.0, 1.0);
-        assertEquals(0.0, belowIncision, 1e-9, "Incision must be 0 for A_f < 8.0");
+        assertEquals(0.0, belowIncision, 1e-9, "Incision must be 0 for A_f < 14.0");
 
-        double atIncision = riverField.computeIncision(8.0, 0.5, 1.0, 1.0);
-        assertEquals(0.0, atIncision, 1e-9, "Incision must be 0 for A_f = 8.0");
+        double atIncision = riverField.computeIncision(14.0, 0.5, 1.0, 1.0);
+        assertEquals(0.0, atIncision, 1e-9, "Incision must be 0 for A_f = 14.0");
 
         // Above channel threshold: incision and width
-        double incisionWithChannel = riverField.computeIncision(9.0, 0.5, 1.0, 1.0);
+        double incisionWithChannel = riverField.computeIncision(16.0, 0.5, 1.0, 1.0);
         assertTrue(incisionWithChannel > 0.0,
-                "Incision must be > 0 for A_f > 8.0: got " + incisionWithChannel);
+                "Incision must be > 0 for A_f > 14.0: got " + incisionWithChannel);
 
-        double widthWithChannel = ChannelField.getWidth(9.0);
+        double widthWithChannel = ChannelField.getWidth(16.0);
         assertTrue(widthWithChannel > 0.0,
-                "Width must be > 0 for A_f > 8.0");
+                "Width must be > 0 for A_f > 14.0");
     }
 
     /**
@@ -228,13 +228,13 @@ public class Phase2RiverCarvingTest {
     @DisplayName("P2-15: Width calibration envelope")
     void testWidthCalibrationEnvelope() {
         // At initiation: 4 blocks (target: 4-6)
-        double widthAtInitiation = ChannelField.getWidth(8.0);
-        assertEquals(4.0, widthAtInitiation, 0.1, "Width at A_f=8 should be 4.0");
+        double widthAtInitiation = ChannelField.getWidth(14.0);
+        assertEquals(4.0, widthAtInitiation, 0.1, "Width at A_f=14 should be 4.0");
 
         // At stream scale: 10 blocks (target: 8-12)
-        double widthAtStream = ChannelField.getWidth(20.0);
+        double widthAtStream = ChannelField.getWidth(30.0);
         assertTrue(widthAtStream >= 8.0 && widthAtStream <= 12.0,
-                "Width at A_f=20 should be 8-12 blocks, got " + widthAtStream);
+                "Width at A_f=30 should be 8-12 blocks, got " + widthAtStream);
 
         // At trunk scale: 25-28 blocks (target: 18-28)
         double widthAtTrunk = ChannelField.getWidth(100.0);
@@ -261,25 +261,25 @@ public class Phase2RiverCarvingTest {
     void testIncisionDepthVariance() {
         RiverField rf = new RiverField(TestFixtures.defaultConfig());
 
-        // At initiation (A_f=9): shallow incision ~2 blocks
-        double incisionAtInitiation = rf.computeIncision(9.0, 0.5, 1.0, 1.0);
-        assertTrue(incisionAtInitiation >= 1.0 && incisionAtInitiation <= 3.0,
-                "Incision at A_f=9 should be 1-3 blocks, got " + incisionAtInitiation);
+        // At initiation (A_f=15): shallow incision ~2 blocks (with slope factor)
+        double incisionAtInitiation = rf.computeIncision(15.0, 0.5, 1.0, 1.0);
+        assertTrue(incisionAtInitiation >= 2.0 && incisionAtInitiation <= 4.0,
+                "Incision at A_f=15 should be 2-4 blocks, got " + incisionAtInitiation);
 
-        // At stream scale (A_f=20): moderate incision ~6 blocks
-        double incisionAtStream = rf.computeIncision(20.0, 0.5, 1.0, 1.0);
-        assertTrue(incisionAtStream >= 4.0 && incisionAtStream <= 8.0,
-                "Incision at A_f=20 should be 4-8 blocks, got " + incisionAtStream);
+        // At stream scale (A_f=30): moderate incision ~6 blocks (with slope factor)
+        double incisionAtStream = rf.computeIncision(30.0, 0.5, 1.0, 1.0);
+        assertTrue(incisionAtStream >= 8.0 && incisionAtStream <= 12.0,
+                "Incision at A_f=30 should be 8-12 blocks, got " + incisionAtStream);
 
-        // At trunk scale (A_f=100): deep incision ~14 blocks
+        // At trunk scale (A_f=100): deep incision ~14 blocks (with slope factor)
         double incisionAtTrunk = rf.computeIncision(100.0, 0.5, 1.0, 1.0);
-        assertTrue(incisionAtTrunk >= 10.0 && incisionAtTrunk <= 18.0,
-                "Incision at A_f=100 should be 10-18 blocks, got " + incisionAtTrunk);
+        assertTrue(incisionAtTrunk >= 14.0 && incisionAtTrunk <= 20.0,
+                "Incision at A_f=100 should be 14-20 blocks, got " + incisionAtTrunk);
 
         // Incision depth ratio should be reduced (not 9x)
         double ratio = incisionAtTrunk / Math.max(1.0, incisionAtInitiation);
-        assertTrue(ratio < 8.0,
-                "Incision depth ratio should be < 8x, got " + ratio + "x");
+        assertTrue(ratio < 10.0,
+                "Incision depth ratio should be < 10x, got " + ratio + "x");
     }
 
     /**

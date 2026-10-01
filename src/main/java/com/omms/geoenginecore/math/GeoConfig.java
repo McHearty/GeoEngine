@@ -217,7 +217,7 @@ public record GeoConfig(
             5.0,                // maxWarpAmplitude: Natural 3-5 block rock overhangs
             16,                 // surfaceBandRadius
             18.0,               // riverMaxIncision: 3-8m stream valleys, max 18m in canyons
-            0.015,              // riverChannelSteepness: Progressive incision along drainage paths (calibrated for raw cell counts, Phase 9 Sprint R3)
+            0.035,              // riverChannelSteepness: Progressive incision along drainage paths (calibrated for A_f=14 threshold, Phase 9 Sprint H1)
             1,                  // drainageIterations: single pass (TECHSPEC §24)
             -40,                // caveMinY
             128                 // caveMaxY
@@ -268,7 +268,7 @@ public record GeoConfig(
             5.0,                // maxWarpAmplitude
             16,                 // surfaceBandRadius
             28.0,               // riverMaxIncision: deeper trunk valleys (was 18)
-            0.015,              // riverChannelSteepness (calibrated for raw cell counts, Phase 9 Sprint R3)
+            0.035,              // riverChannelSteepness (calibrated for A_f=14 threshold, Phase 9 Sprint H1)
             2,                  // drainageIterations: two-pass for stabler corridors (was 1)
             -40,                // caveMinY
             128                 // caveMaxY

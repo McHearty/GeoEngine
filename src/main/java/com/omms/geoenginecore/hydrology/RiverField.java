@@ -50,7 +50,9 @@ public final class RiverField {
             return 0.0;
         }
 
-        double flowStrength = 1.0 - Math.exp(-(flowAccumulation - 1.8) * channelSteepness);
+        // Incision starts just above channel initiation threshold
+        double incisionOffset = ChannelField.CHANNEL_INITIATION_FLOW - 3.0;
+        double flowStrength = 1.0 - Math.exp(-(flowAccumulation - incisionOffset) * channelSteepness);
         // Lowlands (slope ≈ 0) maintain a baseline of 0.65 for defined channels
         double slopeFactor = 0.65 + Math.min(1.85, slopeMagnitude * 1.5);
         double rBase = 16.0 * flowStrength * slopeFactor * climateMultiplier * channelFactor;
