@@ -295,14 +295,14 @@ public class GeoChunkGenerator extends ChunkGenerator {
      * @param originZ world Z of the chunk origin
      */
     /**
-     * Writes water blocks into channel voxels from the bed up to the
-     * water surface level (Phase 9 Sprint A: Wet Rivers).
+     * Writes water blocks into channel voxels from the water surface
+     * level up to the bed (Phase 9 Sprint A: Wet Rivers).
      *
-     * <p>For columns with channelOrder > 0 and waterSurfaceLevel > 0,
-     * this method fills the channel with water from the bed (finalSurface)
-     * up to the water surface level. The water surface is clamped to the
-     * bed to prevent floating water, and the water depth is limited to
-     * prevent infinite water columns.
+     * <p>For columns with channelOrder > 0, this method fills the channel
+     * with water from the computed water surface level up to the bed
+     * elevation. The water surface level is computed based on flow
+     * accumulation and channel geometry, clamped to prevent floating
+     * water or infinite water columns.
      *
      * @param chunk chunk being generated
      * @param config GeoEngine configuration
@@ -318,8 +318,7 @@ public class GeoChunkGenerator extends ChunkGenerator {
                 int cIdx = (lz << 4) | lx;
 
                 int channelOrder = sp.channelOrderGrid[cIdx];
-                int waterSurfaceLevel = sp.waterSurfaceGrid[cIdx];
-                if (channelOrder == 0 || waterSurfaceLevel <= 0) {
+                if (channelOrder == 0) {
                     continue; // No channel water
                 }
 
@@ -327,14 +326,24 @@ public class GeoChunkGenerator extends ChunkGenerator {
                 double bedElevation = sp.surfaceGrid[cIdx];
                 int bedY = (int) Math.round(bedElevation);
 
+                // Compute water surface level based on flow accumulation
+                // Water depth proportional to flow, capped at incision depth
+                double flowStrength = Math.min(1.0, (sp.flowAccGrid[cIdx] - 1.8) * 0.05);
+                double waterDepth = flowStrength * Math.min(sp.riverIncisionGrid[cIdx], 4.0);
+                int waterSurfaceY = (int) Math.round(bedElevation - waterDepth);
+
                 // Clamp water surface to bed (no floating water)
-                int waterTopY = Math.min(waterSurfaceLevel, bedY + 2);
-                if (waterTopY <= bedY) {
-                    continue; // Water surface at or below bed
+                if (waterSurfaceY >= bedY) {
+                    continue; // Water surface at or above bed (no water)
                 }
 
-                // Write water blocks from bed+1 up to waterTopY
-                for (int y = bedY + 1; y <= waterTopY; y++) {
+                // Limit water depth to prevent infinite water columns
+                if (waterSurfaceY < bedY - 8) {
+                    waterSurfaceY = bedY - 8;
+                }
+
+                // Write water blocks from waterSurfaceY+1 up to bedY
+                for (int y = waterSurfaceY + 1; y <= bedY; y++) {
                     BlockPos pos = new BlockPos(wx, y, wz);
                     BlockState current = chunk.getBlockState(pos);
                     if (current.isAir()) {

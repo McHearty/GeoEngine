@@ -368,19 +368,15 @@ public final class ScalarFieldKernel implements FieldKernel {
         sample.finalSurface = hFinal;
 
         // Water surface level computation (Phase 9 spec §6.1)
+        // Water depth scales with flow accumulation, clamped to bed elevation
         if (sample.channelOrder == 0 || hFinal <= config.seaLevel()) {
             sample.waterSurfaceLevel = 0; // No channel water
         } else {
-            // Freeboard scales with channel order (0-2 blocks)
-            double freeboard = 0.0;
-            if (sample.channelOrder == 1) {
-                freeboard = 0.5; // Creek
-            } else if (sample.channelOrder == 2) {
-                freeboard = 1.0; // Feeder
-            } else {
-                freeboard = 1.5; // River / Arterial
-            }
-            sample.waterSurfaceLevel = (int) Math.round(hFinal + freeboard);
+            // Water depth proportional to flow, capped at incision depth
+            double flowStrength = Math.min(1.0, (sample.flowAccumulation - 1.8) * 0.05);
+            double waterDepth = flowStrength * Math.min(sample.riverIncision, 4.0);
+            // Water surface at bed elevation (no freeboard above terrain)
+            sample.waterSurfaceLevel = (int) Math.round(hFinal - waterDepth);
         }
 
         // Diagonal samples for 9-point Hessian curvature stencil
