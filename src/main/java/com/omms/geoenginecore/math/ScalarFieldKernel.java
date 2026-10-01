@@ -302,32 +302,31 @@ public final class ScalarFieldKernel implements FieldKernel {
                 config.dimensionId(), config.generatorVersion(), regionX, regionZ);
             flowAcc = evaluateFullFlowAccumulation(wx, wz);
             int routedCell = drainageRouter.cellIndexFor(regionX, regionZ, wx, wz);
-            channelFactor = drainageRouter.evaluateChannelFactor(graph, routedCell, flowAcc, wx, wz);
-            incision = riverField.computeIncision(flowAcc, sample.gradMagnitude, sample.climateMultiplier, channelFactor);
-            // §80: stable scoped basin / confluence identities.
+            // Compute channel order from flow accumulation (needed for meandered channel factor)
+            if (flowAcc < ChannelField.CHANNEL_INITIATION_FLOW) {
+                sample.channelOrder = 0; // Overland
+            } else if (flowAcc < 30.0) {
+                sample.channelOrder = 1; // Creek / Stream
+            } else if (flowAcc < 80.0) {
+                sample.channelOrder = 2; // Feeder / Tributary
+            } else if (flowAcc < 240.0) {
+                sample.channelOrder = 3; // River (trunk)
+            } else {
+                sample.channelOrder = 4; // Arterial
+            }
+            // §80: stable scoped basin / confluence identities (needed for meandered channel factor)
             basinId = hydrologyField.basinIdForCell(graph, routedCell);
             confluenceId = hydrologyField.confluenceIdForCell(graph, routedCell);
+            // Use meandered channel factor for consistency with chunk path (H5 fix)
+            channelFactor = drainageRouter.evaluateChannelFactorMeandered(graph, routedCell,
+                flowAcc, sample.channelOrder, sample.gradMagnitude, wx, wz, worldSeed, basinId);
+            incision = riverField.computeIncision(flowAcc, sample.gradMagnitude, sample.climateMultiplier, channelFactor);
         }
         sample.flowAccumulation = flowAcc;
         sample.basinId = basinId;
         sample.confluenceId = confluenceId;
         sample.riverIncision = incision;
         sample.channelFactor = (float) channelFactor;
-
-        // Channel order classification (Phase 9 spec §2)
-        // Raw flow accumulation values (cell counts) — thresholds aligned with
-        // ChannelField.CHANNEL_INITIATION_FLOW (14.0) and RiverDebugSampler.
-        if (flowAcc < 14.0) {
-            sample.channelOrder = 0; // Overland
-        } else if (flowAcc < 30.0) {
-            sample.channelOrder = 1; // Creek / Stream
-        } else if (flowAcc < 80.0) {
-            sample.channelOrder = 2; // Feeder / Tributary
-        } else if (flowAcc < 240.0) {
-            sample.channelOrder = 3; // River (trunk)
-        } else {
-            sample.channelOrder = 4; // Arterial
-        }
 
         // Channel half-width (used by adapter for corridor tests)
         sample.channelHalfWidth = (float) com.omms.geoenginecore.hydrology.ChannelField.getWidth(flowAcc);
