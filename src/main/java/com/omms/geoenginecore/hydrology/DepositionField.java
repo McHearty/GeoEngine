@@ -70,7 +70,7 @@ public final class DepositionField {
         double basinConcavity = GeoMath.clamp(laplacian * 2.0, 0.0, 1.0);
         double lowAltitudeFactor = GeoMath.clamp(1.0 - (altitudeAboveSea / 150.0), 0.1, 1.0);
         double ageFactor = 0.4 + 0.6 * age;
-        // Channel factor: reduce deposition in the channel corridor
+        // Channel factor: reduce deposition in the channel corridor.
         double channelFactorAdj = 1.0 - 0.7 * channelFactor;
 
         double depositionRatio = flatness * (0.5 * basinConcavity + 0.5 * lowAltitudeFactor) * ageFactor * channelFactorAdj;

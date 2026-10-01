@@ -588,6 +588,8 @@ public final class ScalarFieldKernel implements FieldKernel {
 
                 double flowAcc = 0.0;
                 double incision = 0.0;
+                double channelFactor = 1.0;
+                int order = 0;
                 long basinId = 0L;
                 long confluenceId = 0L;
 
@@ -606,7 +608,6 @@ public final class ScalarFieldKernel implements FieldKernel {
                     confluenceId = hydrologyField.confluenceIdForCell(graph, routedCell);
 
                     // Channel order classification (Phase 9)
-                    byte order;
                     if (flowAcc < 2.5) {
                         order = 0;
                     } else if (flowAcc < 8.0) {
@@ -621,9 +622,9 @@ public final class ScalarFieldKernel implements FieldKernel {
 
                     // §28: R = F(A_f)·F_slope·F_climate·F_channel.
                     // Use meandered channel factor for lateral displacement (§30).
-                    incision = riverField.computeIncision(flowAcc, slope, climateMult,
-                        drainageRouter.evaluateChannelFactorMeandered(graph, routedCell,
-                            flowAcc, order, slope, wx, wz, worldSeed, basinId));
+                    channelFactor = drainageRouter.evaluateChannelFactorMeandered(graph, routedCell,
+                        flowAcc, order, slope, wx, wz, worldSeed, basinId);
+                    incision = riverField.computeIncision(flowAcc, slope, climateMult, channelFactor);
                 }
 
                 double hStar = hPre - incision;
@@ -637,8 +638,13 @@ public final class ScalarFieldKernel implements FieldKernel {
                     double eTotal = localErosion + incision;
                     double residual = eTotal;
 
+                    // Scale channel factor by channel order: higher order = larger channel
+                    // = more transport capacity = less deposition. Channel order is stable
+                    // across chunk boundaries, so this doesn't introduce seam discontinuities.
+                    double orderScale = 1.0 - 0.05 * order; // 1.0, 0.95, 0.9, 0.85, 0.8 for orders 0-4
+                    double channelFactorForDeposition = channelFactor * orderScale;
                     double sFluvial = Math.min(
-                        DepositionField.computeDeposition(localErosion, incision, slope, lap, hStar - config.seaLevel(), localAge),
+                        DepositionField.computeDeposition(localErosion, incision, slope, lap, hStar - config.seaLevel(), localAge, channelFactorForDeposition),
                         residual);
                     residual -= sFluvial;
 
@@ -662,20 +668,7 @@ public final class ScalarFieldKernel implements FieldKernel {
                 scratchpad.depositionGrid[cIdx] = deposition;
                 scratchpad.surfaceGrid[cIdx] = hFinal;
 
-                // Channel order classification (Phase 9 spec §2)
-                byte order;
-                if (flowAcc < 2.5) {
-                    order = 0;
-                } else if (flowAcc < 8.0) {
-                    order = 1;
-                } else if (flowAcc < 25.0) {
-                    order = 2;
-                } else if (flowAcc < 80.0) {
-                    order = 3;
-                } else {
-                    order = 4;
-                }
-                scratchpad.channelOrderGrid[cIdx] = order;
+                scratchpad.channelOrderGrid[cIdx] = (byte) order;
 
                 // Water surface level (Phase 9 spec §6.1)
                 if (order == 0 || hFinal <= config.seaLevel()) {
