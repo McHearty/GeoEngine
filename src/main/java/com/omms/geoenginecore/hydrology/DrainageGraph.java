@@ -101,88 +101,118 @@ public final class DrainageGraph {
         this.gridOriginX = regionOriginX - (HALO_CELLS * CELL_SIZE);
         this.gridOriginZ = regionOriginZ - (HALO_CELLS * CELL_SIZE);
 
-        Arrays.fill(inDegree, 0);
-
-        // Step 1: Sample 24x24 coarse elevation lattice H0(gx, gz)
+        // Step 1: Sample 24x24 coarse elevation lattice H0(gx, gz) once
         int idx = 0;
         for (int gz = 0; gz < GRID_DIM; gz++) {
             double wz = gridOriginZ + (gz * CELL_SIZE);
             for (int gx = 0; gx < GRID_DIM; gx++) {
                 double wx = gridOriginX + (gx * CELL_SIZE);
                 elevation[idx] = kernel.evaluatePureH0(wx, wz);
-                flowAccumulation[idx] = 1.0; // Base precipitation contribution
-                receiverIndex[idx] = -1;
                 idx++;
             }
         }
 
-        // Step 2: Determine steepest D8 downhill neighbor for all cells
-        // (receiver assignment is elevation-based, done once)
-        for (int gz = 0; gz < GRID_DIM; gz++) {
-            for (int gx = 0; gx < GRID_DIM; gx++) {
-                int currentIdx = (gz * GRID_DIM) + gx;
-                double currentH = elevation[currentIdx];
+        // Fixed-iteration drainage loop (TECHSPEC §24)
+        for (int k = 0; k < iterations; k++) {
+            // Reset per-pass state
+            Arrays.fill(inDegree, 0);
+            Arrays.fill(upstreamCount, 0);
+            Arrays.fill(receiverIndex, -1);
+            Arrays.fill(flowAccumulation, 1.0); // Base precipitation contribution
 
-                double maxSlope = 0.0;
-                int steepestNeighbor = -1;
+            // Step 2: Determine steepest D8 downhill neighbor for all cells
+            for (int gz = 0; gz < GRID_DIM; gz++) {
+                for (int gx = 0; gx < GRID_DIM; gx++) {
+                    int currentIdx = (gz * GRID_DIM) + gx;
+                    double currentH = elevation[currentIdx];
 
-                for (int ddz = -1; ddz <= 1; ddz++) {
-                    int nz = gz + ddz;
-                    if (nz < 0 || nz >= GRID_DIM) continue;
+                    double maxSlope = 0.0;
+                    int steepestNeighbor = -1;
 
-                    for (int ddx = -1; ddx <= 1; ddx++) {
-                        if (ddx == 0 && ddz == 0) continue;
-                        int nx = gx + ddx;
-                        if (nx < 0 || nx >= GRID_DIM) continue;
+                    for (int ddz = -1; ddz <= 1; ddz++) {
+                        int nz = gz + ddz;
+                        if (nz < 0 || nz >= GRID_DIM) continue;
 
-                        int neighborIdx = (nz * GRID_DIM) + nx;
-                        double neighborH = elevation[neighborIdx];
+                        for (int ddx = -1; ddx <= 1; ddx++) {
+                            if (ddx == 0 && ddz == 0) continue;
+                            int nx = gx + ddx;
+                            if (nx < 0 || nx >= GRID_DIM) continue;
 
-                        if (neighborH < currentH) {
-                            double dist = (ddx != 0 && ddz != 0) ? (CELL_SIZE * 1.41421356) : CELL_SIZE;
-                            double slope = (currentH - neighborH) / dist;
+                            int neighborIdx = (nz * GRID_DIM) + nx;
+                            double neighborH = elevation[neighborIdx];
 
-                            if (slope > maxSlope) {
-                                maxSlope = slope;
-                                steepestNeighbor = neighborIdx;
+                            if (neighborH < currentH) {
+                                double dist = (ddx != 0 && ddz != 0) ? (CELL_SIZE * 1.41421356) : CELL_SIZE;
+                                double slope = (currentH - neighborH) / dist;
+
+                                if (slope > maxSlope) {
+                                    maxSlope = slope;
+                                    steepestNeighbor = neighborIdx;
+                                }
                             }
                         }
                     }
-                }
 
-                receiverIndex[currentIdx] = steepestNeighbor;
-                if (steepestNeighbor != -1) {
-                    inDegree[steepestNeighbor]++;
-                    upstreamCount[steepestNeighbor]++;
+                    // Flat/pit resolution: if no downhill neighbor, use lowest neighbor
+                    // with index-ordered tie-breaking to guarantee acyclic graph (DAG)
+                    if (steepestNeighbor == -1) {
+                        for (int ddz = -1; ddz <= 1; ddz++) {
+                            int nz = gz + ddz;
+                            if (nz < 0 || nz >= GRID_DIM) continue;
+
+                            for (int ddx = -1; ddx <= 1; ddx++) {
+                                if (ddx == 0 && ddz == 0) continue;
+                                int nx = gx + ddx;
+                                if (nx < 0 || nx >= GRID_DIM) continue;
+
+                                int neighborIdx = (nz * GRID_DIM) + nx;
+                                if (neighborIdx > currentIdx) continue; // index-ordered tie-break
+
+                                if (elevation[neighborIdx] < elevation[currentIdx]) {
+                                    steepestNeighbor = neighborIdx;
+                                    break; // found strictly lower neighbor
+                                }
+                                // On flats: allow flow to lower-index neighbor
+                                if (Math.abs(elevation[neighborIdx] - elevation[currentIdx]) < 1e-6) {
+                                    steepestNeighbor = neighborIdx;
+                                }
+                            }
+                        }
+                    }
+
+                    receiverIndex[currentIdx] = steepestNeighbor;
+                    if (steepestNeighbor != -1) {
+                        inDegree[steepestNeighbor]++;
+                        upstreamCount[steepestNeighbor]++;
+                    }
+                }
+            }
+
+            // Step 3: Kahn's Algorithm for topological flow accumulation (§27)
+            int head = 0;
+            int tail = 0;
+            for (int i = 0; i < TOTAL_CELLS; i++) {
+                if (inDegree[i] == 0) {
+                    topoQueue[tail++] = i;
+                }
+            }
+
+            while (head < tail) {
+                int u = topoQueue[head++];
+                int v = receiverIndex[u];
+
+                if (v != -1) {
+                    // Downstream cell accumulates full upstream catchment discharge
+                    flowAccumulation[v] += flowAccumulation[u];
+                    inDegree[v]--;
+                    if (inDegree[v] == 0) {
+                        topoQueue[tail++] = v;
+                    }
                 }
             }
         }
 
-        // Step 4: Kahn's Algorithm for topological flow accumulation (§27)
-        // Headwaters (cells with inDegree == 0) initiate downstream propagation
-        int head = 0;
-        int tail = 0;
-        for (int i = 0; i < TOTAL_CELLS; i++) {
-            if (inDegree[i] == 0) {
-                topoQueue[tail++] = i;
-            }
-        }
-
-        while (head < tail) {
-            int u = topoQueue[head++];
-            int v = receiverIndex[u];
-
-            if (v != -1) {
-                // Downstream cell accumulates full upstream catchment discharge
-                flowAccumulation[v] += flowAccumulation[u];
-                inDegree[v]--;
-                if (inDegree[v] == 0) {
-                    topoQueue[tail++] = v;
-                }
-            }
-        }
-
-        // Step 3: reset topology labels so the graph is clean before
+        // Step 4: Reset topology labels so the graph is clean before
         // HydrologyField.analyze runs (basin/confluence ordinals are
         // -1 sentinels until then).
         Arrays.fill(basinCell, -1);

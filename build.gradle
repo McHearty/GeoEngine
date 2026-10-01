@@ -103,6 +103,9 @@ tasks.withType(JavaCompile).configureEach {
 test {
     useJUnitPlatform()
     jvmArgs(['-XX:+IgnoreUnrecognizedVMOptions', '--add-modules=jdk.incubator.vector'])
+    if (project.hasProperty('update.goldens')) {
+        systemProperty 'update.goldens', 'true'
+    }
 }
 
 // Tag-filtered test tasks

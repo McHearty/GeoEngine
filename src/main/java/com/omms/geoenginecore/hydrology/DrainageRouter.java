@@ -236,10 +236,11 @@ public final class DrainageRouter {
 
         double best = d0;
         int cur = routedCell;
-        while (cur >= 0) {
+        int hops = 0;
+        while (cur >= 0 && hops++ < DrainageGraph.TOTAL_CELLS) {
             int next = graph.receiverIndex[cur];
-            if (next < 0) {
-                break; // Regional sink: the path ends
+            if (next < 0 || next == cur) {
+                break; // Regional sink or self-loop: the path ends
             }
             best = Math.min(best, segmentDistance(
                 wx, wz, graph.latticeX(cur), graph.latticeZ(cur), graph.latticeX(next), graph.latticeZ(next)));
@@ -287,10 +288,11 @@ public final class DrainageRouter {
 
         int cur = routedCell;
         double arcLength = 0.0;
-        while (cur >= 0) {
+        int hops = 0;
+        while (cur >= 0 && hops++ < DrainageGraph.TOTAL_CELLS) {
             int next = graph.receiverIndex[cur];
-            if (next < 0) {
-                break;
+            if (next < 0 || next == cur) {
+                break; // Regional sink or self-loop: the path ends
             }
             // Compute segment endpoints
             double x1 = graph.latticeX(cur);
