@@ -522,24 +522,22 @@ public final class GeoDebugCommands {
         source.sendSuccess(() -> Component.literal(
             "§6[GeoEngine] Spawning §e" + samples.size() + "§r river particles (radius " + radius + " blocks)"), false);
 
-        // Spawn particles
+        // Spawn particles — send multiple at each location for visibility
+        // Particles have short lifetimes; sending 5 per location improves clarity
         for (com.omms.geoenginecore.hydrology.RiverDebugSampler.CenterlineSample s : samples) {
-            // Color by channel order
-            // Use bubble particle for river network visualization
-            // (DustParticleOptions requires Vector3f which has different API in NeoForm)
-            level.sendParticles(net.minecraft.core.particles.ParticleTypes.BUBBLE,
-                s.x(), s.y(), s.z(), 1, 0, 0, 0, 0);
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+                s.x(), s.y(), s.z(), 5, 0, 0, 0, 0);
 
             // Extra marker at confluences
             if (s.confluence()) {
                 level.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
-                    s.x(), s.y() + 1, s.z(), 1, 0, 0, 0, 0);
+                    s.x(), s.y() + 1, s.z(), 5, 0, 0, 0, 0);
             }
 
             // Extra marker at sinks
             if (s.sink()) {
-                level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
-                    s.x(), s.y() + 1, s.z(), 1, 0, 0, 0, 0);
+                level.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT,
+                    s.x(), s.y() + 1, s.z(), 5, 0, 0, 0, 0);
             }
         }
 
