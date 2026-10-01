@@ -43,12 +43,20 @@ public class InvariantHydrologyCircularityTest {
                 kernel.evaluateFullColumn(x, z, sample);
 
                 if (sample.riverIncision > 0.0) {
-                    // Hf = H0 - incision + deposition
+                    // Hf = H0 - incision + deposition + asymmetry
                     // If incision depended on post-incision derivatives, we'd have circularity
                     // The pipeline ensures this by computing incision from H0 derivatives
 
+                    // Compute asymmetry term from feature mask (Phase 9 Sprint R5)
+                    double asymmetry = 0.0;
+                    if ((sample.featureMask & com.omms.geoenginecore.hydrology.FeatureGrammar.F_POINT_BAR) != 0) {
+                        asymmetry = 0.5;
+                    } else if ((sample.featureMask & com.omms.geoenginecore.hydrology.FeatureGrammar.F_CUT_BANK) != 0) {
+                        asymmetry = -0.5;
+                    }
+
                     // Verify the surface height identity holds
-                    double expectedHf = sample.surfaceH0 - sample.riverIncision + sample.deposition;
+                    double expectedHf = sample.surfaceH0 - sample.riverIncision + sample.deposition + asymmetry;
                     assertEquals(expectedHf, sample.finalSurface, 0.01,
                             "C8: Surface height identity violated at (" + x + "," + z +
                                     ") — suggests circular dependency in incision computation");

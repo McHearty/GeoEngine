@@ -2,6 +2,7 @@ package com.omms.geoenginecore.test.phase2;
 
 import com.omms.geoenginecore.hydrology.ChannelField;
 import com.omms.geoenginecore.hydrology.DrainageRouter;
+import com.omms.geoenginecore.hydrology.FeatureGrammar;
 import com.omms.geoenginecore.hydrology.MeanderField;
 import com.omms.geoenginecore.hydrology.RiverField;
 import com.omms.geoenginecore.math.GeoConfig;
@@ -94,12 +95,21 @@ public class Phase2RiverCarvingTest {
         assertTrue(sample.riverIncision >= TestFixtures.EPS_R,
                 "Selected column has R = " + sample.riverIncision + " < EPS_R");
 
+        // Compute asymmetry term from feature mask (Phase 9 Sprint R5)
+        double asymmetry = 0.0;
+        if ((sample.featureMask & com.omms.geoenginecore.hydrology.FeatureGrammar.F_POINT_BAR) != 0) {
+            asymmetry = 0.5;
+        } else if ((sample.featureMask & com.omms.geoenginecore.hydrology.FeatureGrammar.F_CUT_BANK) != 0) {
+            asymmetry = -0.5;
+        }
+
         double hStar = sample.hPre - sample.riverIncision;
-        double expectedHf = hStar + sample.deposition;
+        double expectedHf = hStar + sample.deposition + asymmetry;
 
         assertEquals(expectedHf, sample.finalSurface, 1e-9,
                 "Hf coupling broken: hPre(" + sample.hPre + ") - R(" + sample.riverIncision
-                        + ") + S(" + sample.deposition + ") = " + expectedHf
+                        + ") + S(" + sample.deposition + ") + asym(" + asymmetry
+                        + ") = " + expectedHf
                         + " but finalSurface = " + sample.finalSurface);
     }
 
@@ -299,5 +309,39 @@ public class Phase2RiverCarvingTest {
         double amplitude10 = MeanderField.amplitudeForOrder(1, 0.0, halfWidth10);
         assertTrue(amplitude10 >= 3.0 && amplitude10 <= 7.0,
                 "Amplitude at width=10 should be 3-7 blocks, got " + amplitude10);
+    }
+
+    /**
+     * P2-18: Cross-section asymmetry (Phase 9 Sprint R5).
+     *
+     * <p>Verify point bar deposition (+0.5 blocks) and cut bank erosion (-0.5 blocks)
+     * modify the surface height appropriately.
+     */
+    @Tag("must")
+    @Tag("phase2")
+
+    @Test
+    @DisplayName("P2-18: Cross-section asymmetry")
+    void testCrossSectionAsymmetry() {
+        // Verify the asymmetry constants
+        double pointBarDeposit = 0.5;  // Point bar adds sediment
+        double cutBankErosion = -0.5;  // Cut bank removes sediment
+
+        // Verify FeatureGrammar detects point bar and cut bank
+        // computeFeatureMask(order, flowAcc, slope, curvature, distThalweg, halfWidth, ...)
+        // Point bar: positive curvature, positive distance (inner bend)
+        int pbMask = FeatureGrammar.computeFeatureMask(
+                1, 2.0, 0.02, 0.02, 2.0, 5.0, false, false, false, false, 0.0);
+        assertTrue((pbMask & FeatureGrammar.F_POINT_BAR) != 0,
+                "Point bar should be detected on inner bend");
+
+        // Cut bank: positive curvature, negative distance (outer bend)
+        int cbMask = FeatureGrammar.computeFeatureMask(
+                1, 2.0, 0.02, 0.02, -2.0, 5.0, false, false, false, false, 0.0);
+        assertTrue((cbMask & FeatureGrammar.F_CUT_BANK) != 0,
+                "Cut bank should be detected on outer bend");
+
+        // Verify asymmetry is applied in kernel (via surface height identity tests)
+        // C8 and P2-11 now account for asymmetry term
     }
 }

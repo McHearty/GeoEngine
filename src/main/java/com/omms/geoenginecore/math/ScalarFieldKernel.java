@@ -382,6 +382,17 @@ public final class ScalarFieldKernel implements FieldKernel {
             sample.waterSurfaceLevel = (int) Math.round(hFinal - waterDepth);
         }
 
+        // Cross-section asymmetry (Phase 9 Sprint R5)
+        // Point bar: sediment deposition on inner bend (+0.5 blocks)
+        // Cut bank: erosion on outer bend (-0.5 blocks)
+        if ((sample.featureMask & com.omms.geoenginecore.hydrology.FeatureGrammar.F_POINT_BAR) != 0) {
+            sample.finalSurface = hFinal + 0.5;
+        } else if ((sample.featureMask & com.omms.geoenginecore.hydrology.FeatureGrammar.F_CUT_BANK) != 0) {
+            sample.finalSurface = hFinal - 0.5;
+        } else {
+            sample.finalSurface = hFinal;
+        }
+
         // Diagonal samples for 9-point Hessian curvature stencil
         double hPreNW = evaluatePreFluvialSurface(wx - delta, wz - delta, evaluatePureH0(wx - delta, wz - delta), sample.temperature, sample.humidity, baseSlope);
         double hPreNE = evaluatePreFluvialSurface(wx + delta, wz - delta, evaluatePureH0(wx + delta, wz - delta), sample.temperature, sample.humidity, baseSlope);
@@ -738,6 +749,15 @@ public final class ScalarFieldKernel implements FieldKernel {
                         scratchpad.laplacianGrid[cIdx], scratchpad.distanceToThalwegGrid[cIdx],
                         ChannelField.getWidth(scratchpad.flowAccGrid[cIdx]) * 0.5,
                         scratchpad.confluenceIdGrid[cIdx] != 0L, false, false, false, 0.0);
+
+                    // Cross-section asymmetry (Phase 9 Sprint R5)
+                    // Point bar: sediment deposition on inner bend (+0.5 blocks)
+                    // Cut bank: erosion on outer bend (-0.5 blocks)
+                    if ((scratchpad.featureMaskGrid[cIdx] & FeatureGrammar.F_POINT_BAR) != 0) {
+                        scratchpad.sample.finalSurface = hC + 0.5;
+                    } else if ((scratchpad.featureMaskGrid[cIdx] & FeatureGrammar.F_CUT_BANK) != 0) {
+                        scratchpad.sample.finalSurface = hC - 0.5;
+                    }
                 }
 
                 int bits = landformClassifier.classify(
