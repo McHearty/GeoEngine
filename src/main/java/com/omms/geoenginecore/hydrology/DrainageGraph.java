@@ -254,8 +254,10 @@ public final class DrainageGraph {
                       + (1.0 - fx) * fz * flowAccumulation[idx01]
                       + fx * fz * flowAccumulation[idx11];
 
-        // Saturating logarithmic transform for incision scaling
-        return Math.log1p(Math.max(0.0, rawAcc));
+        // Return raw interpolated flow accumulation (cell counts).
+        // No log1p transform: consumers (RiverField, ChannelField, order taxonomy)
+        // expect raw values for consistent scaling across debug and production paths.
+        return Math.max(0.0, rawAcc);
     }
 
     /**

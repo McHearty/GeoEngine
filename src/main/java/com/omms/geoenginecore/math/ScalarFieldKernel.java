@@ -303,9 +303,11 @@ public final class ScalarFieldKernel implements FieldKernel {
         sample.channelFactor = (float) channelFactor;
 
         // Channel order classification (Phase 9 spec §2)
+        // Raw flow accumulation values (cell counts) — thresholds match
+        // RiverDebugSampler and ChannelField.CHANNEL_INITIATION_FLOW.
         if (flowAcc < 2.5) {
             sample.channelOrder = 0; // Overland
-        } else if (flowAcc < 8.0) {
+        } else if (flowAcc < 5.0) {
             sample.channelOrder = 1; // Creek / Stream
         } else if (flowAcc < 25.0) {
             sample.channelOrder = 2; // Feeder / Tributary
@@ -372,8 +374,9 @@ public final class ScalarFieldKernel implements FieldKernel {
         if (sample.channelOrder == 0 || hFinal <= config.seaLevel()) {
             sample.waterSurfaceLevel = 0; // No channel water
         } else {
-            // Water depth proportional to flow, capped at incision depth
-            double flowStrength = Math.min(1.0, (sample.flowAccumulation - 1.8) * 0.05);
+            // Water depth proportional to flow, capped at incision depth.
+            // Exponential saturation matches RiverField flow scaling.
+            double flowStrength = 1.0 - Math.exp(-(sample.flowAccumulation - 1.8) * 0.15);
             double waterDepth = flowStrength * Math.min(sample.riverIncision, 4.0);
             // Water surface at bed elevation (no freeboard above terrain)
             sample.waterSurfaceLevel = (int) Math.round(hFinal - waterDepth);
@@ -608,9 +611,11 @@ public final class ScalarFieldKernel implements FieldKernel {
                     confluenceId = hydrologyField.confluenceIdForCell(graph, routedCell);
 
                     // Channel order classification (Phase 9)
+                    // Raw flow accumulation values — thresholds match
+                    // RiverDebugSampler and ChannelField.CHANNEL_INITIATION_FLOW.
                     if (flowAcc < 2.5) {
                         order = 0;
-                    } else if (flowAcc < 8.0) {
+                    } else if (flowAcc < 5.0) {
                         order = 1;
                     } else if (flowAcc < 25.0) {
                         order = 2;

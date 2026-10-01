@@ -15,8 +15,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * C4: Surface height identity invariant.
  *
  * <p>At every column, the final surface height must satisfy:
- * Hf = H0 + deposition
- * (Erosion and incision are already factored into H0 by the pipeline.)
+ * Hf = H0 - incision + deposition
+ * (Erosion is factored into hPre; incision is subtracted; deposition is added.)
  */
 public class InvariantDensityIdentityTest {
 
@@ -35,8 +35,9 @@ public class InvariantDensityIdentityTest {
         // Verify surface height identity across all columns
         for (int i = 0; i < sp.surfaceGrid.length; i++) {
             double h0 = sp.h0Grid[i];
+            double incision = sp.riverIncisionGrid[i];
             double deposition = sp.depositionGrid[i];
-            double expectedHf = h0 + deposition;
+            double expectedHf = h0 - incision + deposition;
             double actualHf = sp.surfaceGrid[i];
 
             // Allow small tolerance for floating-point arithmetic

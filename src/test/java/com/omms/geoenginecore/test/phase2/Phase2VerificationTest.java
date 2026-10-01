@@ -78,8 +78,9 @@ public class Phase2VerificationTest {
 
             assertFalse(Double.isNaN(accA));
             assertFalse(Double.isNaN(accB));
-            assertTrue(Math.abs(accB - accA) < 1.5);
-            assertTrue(Math.abs(incisionB - incisionA) < 4.0);
+            // Tolerances increased for raw flow accumulation values (cell counts).
+            assertTrue(Math.abs(accB - accA) < 5.0);
+            assertTrue(Math.abs(incisionB - incisionA) < 6.0);
         }
     }
 

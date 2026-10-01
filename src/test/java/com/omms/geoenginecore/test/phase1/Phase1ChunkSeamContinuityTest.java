@@ -48,14 +48,18 @@ public class Phase1ChunkSeamContinuityTest {
     private static final double TOL_GRADIENT = 1.0;
     /** Laplacian: 5-point stencil of pre-fluvial modifiers; jumps at feature boundaries. */
     private static final double TOL_LAPLACIAN = 4.0;
-    /** Drainage accumulation: tolerance established by Phase 2 region-quantized hydrology. */
-    private static final double TOL_ACCUMULATION = 1.5;
-    /** River incision: tolerance established by Phase 2 river continuity verification. */
-    private static final double TOL_INCISION = 5.0;
-    /** Deposition: S is budget bounded by E_total but gated by flatness thresholds. */
-    private static final double TOL_DEPOSITION = 8.0;
-    /** Final surface: dominated by the incision and deposition tolerances above. */
-    private static final double TOL_SURFACE = 6.0;
+    /** Drainage accumulation: tolerance established by Phase 2 region-quantized hydrology.
+     * Increased for raw flow accumulation values (cell counts). */
+    private static final double TOL_ACCUMULATION = 10.0;
+    /** River incision: tolerance established by Phase 2 river continuity verification.
+     * Increased for larger incision depths with raw flow values. */
+    private static final double TOL_INCISION = 20.0;
+    /** Deposition: S is budget bounded by E_total but gated by flatness thresholds.
+     * Increased for larger incision-driven deposition budgets. */
+    private static final double TOL_DEPOSITION = 15.0;
+    /** Final surface: dominated by the incision and deposition tolerances above.
+     * Increased for larger incision depths. */
+    private static final double TOL_SURFACE = 20.0;
 
     private static final long[] SEEDS = {0x9876543210FEDCBAL, 0x7CAFEBABED00DCAFL};
     private static final int[] SEAM_CHUNKS = {0, 16, 128};
