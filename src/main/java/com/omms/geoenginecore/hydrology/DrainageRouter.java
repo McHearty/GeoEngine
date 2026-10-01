@@ -313,20 +313,37 @@ public final class DrainageRouter {
             double perpX = -dirZ;
             double perpZ = dirX;
 
-            // Apply meander offset perpendicular to flow direction
-            double offset1 = MeanderField.offset(channelOrder, slope, halfWidth,
-                seed, basinId, arcLength);
-            double offset2 = MeanderField.offset(channelOrder, slope, halfWidth,
-                seed, basinId, arcLength + DrainageGraph.CELL_SIZE);
+            // Densify: subdivide edge into SUBDIVISIONS sub-segments
+            // and compute meander offset at each subdivision point.
+            // This produces a smooth centerline rather than raw D8 edges.
+            double subLen = len / SUBDIVISIONS;
+            for (int sub = 0; sub < SUBDIVISIONS; sub++) {
+                double t1 = sub / (double) SUBDIVISIONS;
+                double t2 = (sub + 1) / (double) SUBDIVISIONS;
 
-            // Compute distance to meandered segment
-            best = Math.min(best, segmentDistance(
-                wx, wz,
-                x1 + perpX * offset1, z1 + perpZ * offset1,
-                x2 + perpX * offset2, z2 + perpZ * offset2));
+                // Sub-segment endpoints (linear interpolation)
+                double sx1 = x1 + t1 * dx;
+                double sz1 = z1 + t1 * dz;
+                double sx2 = x1 + t2 * dx;
+                double sz2 = z1 + t2 * dz;
+
+                // Meander offset at sub-segment endpoints
+                double arcT1 = arcLength + t1 * len;
+                double arcT2 = arcLength + t2 * len;
+                double offsetT1 = MeanderField.offset(channelOrder, slope, halfWidth,
+                    seed, basinId, arcT1);
+                double offsetT2 = MeanderField.offset(channelOrder, slope, halfWidth,
+                    seed, basinId, arcT2);
+
+                // Compute distance to meandered sub-segment
+                best = Math.min(best, segmentDistance(
+                    wx, wz,
+                    sx1 + perpX * offsetT1, sz1 + perpZ * offsetT1,
+                    sx2 + perpX * offsetT2, sz2 + perpZ * offsetT2));
+            }
 
             if (best < halfWidth
-                && pointDistance(wx, wz, x2 + perpX * offset2, z2 + perpZ * offset2) > halfWidth + WALK_MARGIN) {
+                && pointDistance(wx, wz, x2, z2) > halfWidth + WALK_MARGIN) {
                 break;
             }
 
@@ -336,6 +353,8 @@ public final class DrainageRouter {
         return ChannelField.corridorFactor(halfWidth, best);
     }
 
+    /** Number of sub-segments per D8 edge for centerline densification. */
+    private static final int SUBDIVISIONS = 4;
     /** Strict bound on one D8 hop (16√2 ≈ 22.63 blocks), in blocks. */
     private static final double WALK_MARGIN = 23.0;
 
