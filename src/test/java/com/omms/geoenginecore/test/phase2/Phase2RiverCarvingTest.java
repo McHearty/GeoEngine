@@ -2,6 +2,7 @@ package com.omms.geoenginecore.test.phase2;
 
 import com.omms.geoenginecore.hydrology.ChannelField;
 import com.omms.geoenginecore.hydrology.DrainageRouter;
+import com.omms.geoenginecore.hydrology.MeanderField;
 import com.omms.geoenginecore.hydrology.RiverField;
 import com.omms.geoenginecore.math.GeoConfig;
 import com.omms.geoenginecore.math.GeoSample;
@@ -269,5 +270,34 @@ public class Phase2RiverCarvingTest {
         double ratio = incisionAtTrunk / Math.max(1.0, incisionAtInitiation);
         assertTrue(ratio < 8.0,
                 "Incision depth ratio should be < 8x, got " + ratio + "x");
+    }
+
+    /**
+     * P2-17: Meander calibration (Phase 9 Sprint R4).
+     *
+     * <p>Verify wavelength is ~8x width and amplitude is ~w/2.
+     */
+    @Tag("must")
+    @Tag("phase2")
+
+    @Test
+    @DisplayName("P2-17: Meander calibration")
+    void testMeanderCalibration() {
+        // Wavelength should be ~8x width
+        double width10 = ChannelField.getWidth(20.0); // ~10 blocks
+        double wavelength10 = MeanderField.wavelengthForWidth(width10);
+        assertTrue(wavelength10 >= 40.0 && wavelength10 <= 100.0,
+                "Wavelength at width=10 should be 40-100 blocks, got " + wavelength10);
+
+        double width20 = ChannelField.getWidth(100.0); // ~25 blocks
+        double wavelength20 = MeanderField.wavelengthForWidth(width20);
+        assertTrue(wavelength20 >= 100.0 && wavelength20 <= 250.0,
+                "Wavelength at width=25 should be 100-250 blocks, got " + wavelength20);
+
+        // Amplitude should be ~w/2 at flat slope
+        double halfWidth10 = width10 * 0.5;
+        double amplitude10 = MeanderField.amplitudeForOrder(1, 0.0, halfWidth10);
+        assertTrue(amplitude10 >= 3.0 && amplitude10 <= 7.0,
+                "Amplitude at width=10 should be 3-7 blocks, got " + amplitude10);
     }
 }

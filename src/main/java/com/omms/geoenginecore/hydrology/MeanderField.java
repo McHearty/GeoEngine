@@ -11,22 +11,19 @@ import com.omms.geoenginecore.math.GeoMath;
  */
 public final class MeanderField {
 
-    /** Minimum wavelength for creek-order meanders (blocks). */
-    public static final double MEANDER_WAVELENGTH_MIN = 64.0;
-    /** Maximum wavelength for arterial-order meanders (blocks). */
-    public static final double MEANDER_WAVELENGTH_MAX = 512.0;
+    /** Wavelength multiplier (wavelength = MEANDER_WAVELENGTH_MULTIPLIER * width). */
+    public static final double MEANDER_WAVELENGTH_MULTIPLIER = 8.0;
     /** Maximum meander amplitude as fraction of channel half-width. */
-    public static final double MEANDER_AMPLITUDE_FRACTION = 0.5;
+    public static final double MEANDER_AMPLITUDE_FRACTION = 1.0;
     /** Slope above which meanders become straight (dimensionless). */
     public static final double MEANDER_STRAIGHT_SLOPE = 0.1;
 
     /**
-     * Compute the wavelength for a given channel order.
-     * Longer wavelengths for higher-order channels.
+     * Compute the wavelength for a given channel width.
+     * Wavelength is proportional to width (~8x the full width).
      */
-    public static double wavelengthForOrder(int order) {
-        double t = Math.min(order, 4) / 4.0; // 0.0 to 1.0
-        return MEANDER_WAVELENGTH_MIN + t * (MEANDER_WAVELENGTH_MAX - MEANDER_WAVELENGTH_MIN);
+    public static double wavelengthForWidth(double fullWidth) {
+        return MEANDER_WAVELENGTH_MULTIPLIER * fullWidth;
     }
 
     /**
@@ -75,7 +72,8 @@ public final class MeanderField {
         if (order == 0 || halfWidth <= 0.0) {
             return 0.0;
         }
-        double wavelength = wavelengthForOrder(order);
+        double fullWidth = halfWidth * 2.0;
+        double wavelength = wavelengthForWidth(fullWidth);
         double amplitude = amplitudeForOrder(order, slope, halfWidth);
         double phaseVal = phase(seed, basinId);
         // Sinusoidal meander
