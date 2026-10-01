@@ -303,15 +303,15 @@ public final class ScalarFieldKernel implements FieldKernel {
         sample.channelFactor = (float) channelFactor;
 
         // Channel order classification (Phase 9 spec §2)
-        // Raw flow accumulation values (cell counts) — thresholds match
-        // RiverDebugSampler and ChannelField.CHANNEL_INITIATION_FLOW.
-        if (flowAcc < 2.5) {
+        // Raw flow accumulation values (cell counts) — thresholds aligned with
+        // ChannelField.CHANNEL_INITIATION_FLOW (8.0) and RiverDebugSampler.
+        if (flowAcc < 8.0) {
             sample.channelOrder = 0; // Overland
-        } else if (flowAcc < 5.0) {
+        } else if (flowAcc < 20.0) {
             sample.channelOrder = 1; // Creek / Stream
-        } else if (flowAcc < 25.0) {
+        } else if (flowAcc < 60.0) {
             sample.channelOrder = 2; // Feeder / Tributary
-        } else if (flowAcc < 80.0) {
+        } else if (flowAcc < 200.0) {
             sample.channelOrder = 3; // River (trunk)
         } else {
             sample.channelOrder = 4; // Arterial
@@ -611,15 +611,15 @@ public final class ScalarFieldKernel implements FieldKernel {
                     confluenceId = hydrologyField.confluenceIdForCell(graph, routedCell);
 
                     // Channel order classification (Phase 9)
-                    // Raw flow accumulation values — thresholds match
-                    // RiverDebugSampler and ChannelField.CHANNEL_INITIATION_FLOW.
-                    if (flowAcc < 2.5) {
+                    // Raw flow accumulation values — thresholds aligned with
+                    // ChannelField.CHANNEL_INITIATION_FLOW (8.0) and RiverDebugSampler.
+                    if (flowAcc < 8.0) {
                         order = 0;
-                    } else if (flowAcc < 5.0) {
+                    } else if (flowAcc < 20.0) {
                         order = 1;
-                    } else if (flowAcc < 25.0) {
+                    } else if (flowAcc < 60.0) {
                         order = 2;
-                    } else if (flowAcc < 80.0) {
+                    } else if (flowAcc < 200.0) {
                         order = 3;
                     } else {
                         order = 4;

@@ -45,7 +45,8 @@ public final class RiverField {
      */
     public double computeIncision(double flowAccumulation, double slopeMagnitude,
                                   double climateMultiplier, double channelFactor) {
-        if (flowAccumulation <= 1.8) {
+        // Raw cell count threshold aligned with ChannelField.CHANNEL_INITIATION_FLOW
+        if (flowAccumulation <= ChannelField.CHANNEL_INITIATION_FLOW) {
             return 0.0;
         }
 

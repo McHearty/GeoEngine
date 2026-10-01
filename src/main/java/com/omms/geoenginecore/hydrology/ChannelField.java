@@ -13,8 +13,11 @@ public final class ChannelField {
     /**
      * Flow accumulation required to initiate a channel. Below this
      * threshold the column is unsaturated overland flow.
+     * 
+     * Raw cell count (not log1p-transformed). Set to 8.0 to reduce
+     * network density and avoid "veiny" terrain.
      */
-    public static final double CHANNEL_INITIATION_FLOW = 2.5;
+    public static final double CHANNEL_INITIATION_FLOW = 8.0;
 
     /** Hides the implicit constructor. This is a static utility class. */
     private ChannelField() {}

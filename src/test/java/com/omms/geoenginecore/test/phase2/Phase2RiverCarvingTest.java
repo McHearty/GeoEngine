@@ -149,9 +149,8 @@ public class Phase2RiverCarvingTest {
     /**
      * P2-13: Thresholds.
      *
-     * <p>A_f ≤ 1.8 → R = 0; A_f in (1.8, 2.5) may have R but width = 0;
-     * A_f > 2.5 → R > 0 and width > 0.
-     * This validates the channel initiation thresholds (TECHSPEC §28).
+     * <p>A_f ≤ 8.0 → R = 0 and width = 0; A_f > 8.0 → R > 0 and width > 0.
+     * This validates the channel initiation threshold (TECHSPEC §28).
      */
     @Tag("must")
     @Tag("phase2")
@@ -163,28 +162,19 @@ public class Phase2RiverCarvingTest {
 
         // Below incision threshold: no incision
         double belowIncision = riverField.computeIncision(1.0, 0.5, 1.0, 1.0);
-        assertEquals(0.0, belowIncision, 1e-9, "Incision must be 0 for A_f < 1.8");
+        assertEquals(0.0, belowIncision, 1e-9, "Incision must be 0 for A_f < 8.0");
 
-        double atIncision = riverField.computeIncision(1.8, 0.5, 1.0, 1.0);
-        assertEquals(0.0, atIncision, 1e-9, "Incision must be 0 for A_f = 1.8");
-
-        // Above incision threshold but below channel threshold: incision but no width
-        double incisionNoChannel = riverField.computeIncision(2.0, 0.5, 1.0, 1.0);
-        assertTrue(incisionNoChannel > 0.0,
-                "Incision must be > 0 for A_f > 1.8: got " + incisionNoChannel);
-
-        double widthNoChannel = ChannelField.getWidth(2.0);
-        assertEquals(0.0, widthNoChannel, 1e-9,
-                "Width must be 0 for A_f < 2.5");
+        double atIncision = riverField.computeIncision(8.0, 0.5, 1.0, 1.0);
+        assertEquals(0.0, atIncision, 1e-9, "Incision must be 0 for A_f = 8.0");
 
         // Above channel threshold: incision and width
-        double incisionWithChannel = riverField.computeIncision(3.0, 0.5, 1.0, 1.0);
+        double incisionWithChannel = riverField.computeIncision(9.0, 0.5, 1.0, 1.0);
         assertTrue(incisionWithChannel > 0.0,
-                "Incision must be > 0 for A_f > 2.5");
+                "Incision must be > 0 for A_f > 8.0: got " + incisionWithChannel);
 
-        double widthWithChannel = ChannelField.getWidth(3.0);
+        double widthWithChannel = ChannelField.getWidth(9.0);
         assertTrue(widthWithChannel > 0.0,
-                "Width must be > 0 for A_f > 2.5");
+                "Width must be > 0 for A_f > 8.0");
     }
 
     /**

@@ -53,15 +53,15 @@ public final class RiverDebugSampler {
 
             // Check if this edge is on a channel (order >= 1)
             double af = graph.flowAccumulation[i];
-            if (af < 2.5) { // ChannelField.CHANNEL_INITIATION_FLOW
+            if (af < ChannelField.CHANNEL_INITIATION_FLOW) {
                 continue;
             }
             int order;
-            if (af < 5.0) {
+            if (af < 20.0) {
                 order = 1;
-            } else if (af < 25.0) {
+            } else if (af < 60.0) {
                 order = 2;
-            } else if (af < 80.0) {
+            } else if (af < 200.0) {
                 order = 3;
             } else {
                 order = 4;
