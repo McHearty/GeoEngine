@@ -355,10 +355,14 @@ public final class ScalarFieldKernel implements FieldKernel {
             double eTotal = sample.erosionLowering + incision;
             double residual = eTotal;
 
+            // Scale channel factor by channel order: higher order = larger channel
+            // = more transport capacity = less deposition. Matches chunk path.
+            double orderScale = 1.0 - 0.05 * sample.channelOrder;
+            double channelFactorForDeposition = channelFactor * orderScale;
             double sFluvial = Math.min(
                 DepositionField.computeDeposition(
                     sample.erosionLowering, incision, sample.gradMagnitude,
-                    sample.laplacian, hStar - config.seaLevel(), sample.age, channelFactor
+                    sample.laplacian, hStar - config.seaLevel(), sample.age, channelFactorForDeposition
                 ),
                 residual
             );
@@ -381,6 +385,20 @@ public final class ScalarFieldKernel implements FieldKernel {
         }
         sample.finalSurface = hFinal;
 
+        // Water surface level computation (Phase 9 spec §6.1)
+        // Water depth scales with flow accumulation, clamped to bed elevation
+        // Computed before asymmetry adjustment (consistent with chunk path)
+        if (sample.channelOrder == 0 || hFinal <= config.seaLevel()) {
+            sample.waterSurfaceLevel = 0; // No channel water (below sea level or not a channel)
+        } else {
+            // Water depth proportional to flow, capped at incision depth.
+            // Exponential saturation matches RiverField flow scaling.
+            double flowStrength = 1.0 - Math.exp(-(sample.flowAccumulation - 1.8) * 0.15);
+            double waterDepth = flowStrength * Math.min(sample.riverIncision, 4.0);
+            // Water surface at bed elevation (no freeboard above terrain)
+            sample.waterSurfaceLevel = (int) Math.round(hFinal - waterDepth);
+        }
+
         // Cross-section asymmetry (Phase 9 Sprint R5)
         // Point bar: sediment deposition on inner bend (+0.5 blocks)
         // Cut bank: erosion on outer bend (-0.5 blocks)
@@ -390,20 +408,6 @@ public final class ScalarFieldKernel implements FieldKernel {
             sample.finalSurface = hFinal - 0.5;
         } else {
             sample.finalSurface = hFinal;
-        }
-
-        // Water surface level computation (Phase 9 spec §6.1)
-        // Water depth scales with flow accumulation, clamped to bed elevation
-        // Uses finalSurface (after asymmetry adjustment) for consistency with test
-        if (sample.channelOrder == 0 || sample.finalSurface <= config.seaLevel()) {
-            sample.waterSurfaceLevel = 0; // No channel water (below sea level or not a channel)
-        } else {
-            // Water depth proportional to flow, capped at incision depth.
-            // Exponential saturation matches RiverField flow scaling.
-            double flowStrength = 1.0 - Math.exp(-(sample.flowAccumulation - 1.8) * 0.15);
-            double waterDepth = flowStrength * Math.min(sample.riverIncision, 4.0);
-            // Water surface at bed elevation (no freeboard above terrain)
-            sample.waterSurfaceLevel = (int) Math.round(sample.finalSurface - waterDepth);
         }
 
         // Diagonal samples for 9-point Hessian curvature stencil
@@ -707,8 +711,8 @@ public final class ScalarFieldKernel implements FieldKernel {
                     // Water depth proportional to flow, capped at incision depth.
                     // Exponential saturation matches RiverField flow scaling.
                     double flowStrength = 1.0 - Math.exp(-(flowAcc - 1.8) * 0.15);
-                    double incisionDepth = config.riverMaxIncision() * channelFactor;
-                    double waterDepth = flowStrength * Math.min(incisionDepth, 4.0);
+                    // Use actual incision value, not max incision * channelFactor
+                    double waterDepth = flowStrength * Math.min(incision, 4.0);
                     // Water surface at bed elevation (no freeboard above terrain)
                     scratchpad.waterSurfaceGrid[cIdx] = (int) Math.round(hFinal - waterDepth);
                 }
