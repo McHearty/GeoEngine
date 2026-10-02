@@ -294,3 +294,37 @@ Items identified during forensic evaluation of v0.2.0:
 - [x] **Execute amendment-specific tests**: BankContinuity (A6.2), QuantisedIncisionIsolation (A6.4), ContinuousSurfaceAuthority (A6.5), ReconnectionBound (A6.11), ReconnectionFailSafe (A6.12) implemented and passing. PlateSeam, BankTargetTransition, PostMeanderBankConsistency deferred (require multi-plate or kernel-level integration tests beyond unit test scope).
 
 **Test Status:** 208 tests total (205 passing, 3 known expected failures: P2-10, P2-11, P9-01)
+
+## Performance
+
+### Benchmarks
+- Warm path: 1,269 chunks/sec (Phase1BenchmarkTest)
+- Cold region build: 5.0 ms (PerformanceColdRegionTest, with cheap H₀ proxy)
+- Previous baseline (v0.1.0): 1,253.7 chunks/sec
+
+### In-Game Optimizations (Oct 2, 2026)
+The in-game performance analysis identified that the integration path was dominating
+the pure core computation. Key optimizations:
+
+1. **Eliminated double surface rasterization** (commit 97b6876)
+   - Added ChunkScratchpadCache (64-chunk LRU) that caches rasterized chunk scratchpads
+   - Both rasterizeChunk and buildSurface check the cache first
+   - Reduces redundant rasterization when buildSurface is called on a different
+     worker thread than fillFromNoise
+
+2. **Cheap getBaseHeight via cached surface grid** (commit c42b8e4)
+   - getBaseHeight now checks the chunk scratchpad cache and returns the cached
+     surface height if available
+   - Avoids expensive full column evaluation for structure placement and heightmap
+     queries that call getBaseHeight many times per chunk
+   - Full column evaluation only used as fallback when chunk not yet rasterized
+
+### Root Cause Analysis
+The in-game slowness vs StreamsReflowing was dominated by:
+- Double rasterization (fillFromNoise + buildSurface each rasterized)
+- Expensive getBaseHeight calls during structure placement (full column eval)
+- Cold region graph construction (now optimized to ~5 ms)
+
+After these optimizations, the remaining performance gap is the legitimate
+architectural cost of continuous geomorphic computation vs discrete network
++ feature carving.
