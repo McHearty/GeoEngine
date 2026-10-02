@@ -451,13 +451,23 @@ public final class ScalarFieldKernel implements FieldKernel {
             sample.waterSurfaceLevel = (int) Math.round(hFinal - waterDepth);
         }
 
-        // Cross-section asymmetry (Phase 9 Sprint R5)
-        // Point bar: sediment deposition on inner bend (+0.5 blocks)
-        // Cut bank: erosion on outer bend (-0.5 blocks)
-        if ((sample.featureMask & com.omms.geoenginecore.hydrology.FeatureGrammar.F_POINT_BAR) != 0) {
-            hFinal = hFinal + 0.5;
-        } else if ((sample.featureMask & com.omms.geoenginecore.hydrology.FeatureGrammar.F_CUT_BANK) != 0) {
-            hFinal = hFinal - 0.5;
+        // Compute signed distance to thalweg and apply continuous bank displacement
+        // (TECHSPEC_AMEND001: bank geometry operates on final post-meander centerline)
+        if (sample.channelOrder > 0) {
+            int regionX = (int) Math.floor(wx / (double) DrainageRouter.REGION_SPAN);
+            int regionZ = (int) Math.floor(wz / (double) DrainageRouter.REGION_SPAN);
+            DrainageGraph graph = drainageRouter.resolveGraph(this, worldSeed, config.configHash(), regionX, regionZ);
+            int routedCell = drainageRouter.cellIndexFor(graph, regionX, regionZ, wx, wz);
+
+            // Signed distance to meandered thalweg (post-meander)
+            double signedDist = drainageRouter.signedDistanceToThalweg(
+                graph, routedCell, sample.flowAccumulation, sample.channelOrder,
+                sample.gradMagnitude, wx, wz, worldSeed, sample.basinId);
+            sample.distanceToThalweg = (float) signedDist;
+
+            // Continuous bank displacement from distance to centerline
+            double bankDisp = bankField.displacement(Math.abs(signedDist));
+            hFinal = hFinal - bankDisp;
         }
 
         // Hf (continuous authority) = hPre - R + S + asymmetry
@@ -815,16 +825,24 @@ public final class ScalarFieldKernel implements FieldKernel {
                 scratchpad.sample.distanceToThalweg = scratchpad.distanceToThalwegGrid[cIdx];
                 scratchpad.sample.featureMask = scratchpad.featureMaskGrid[cIdx];
 
-                // Compute signed distance to thalweg for bank asymmetry (Sprint C)
+                // Compute signed distance to thalweg for bank geometry
                 int order = scratchpad.channelOrderGrid[cIdx];
                 if (order > 0) {
                     int regionX = (int) Math.floor(wx / (double) DrainageRouter.REGION_SPAN);
                     int regionZ = (int) Math.floor(wz / (double) DrainageRouter.REGION_SPAN);
                     DrainageGraph graph = drainageRouter.resolveGraph(this, worldSeed, config.configHash(), regionX, regionZ);
                     int routedCell = drainageRouter.cellIndexFor(graph, regionX, regionZ, wx, wz);
+
+                    // Signed distance to meandered thalweg (post-meander)
                     scratchpad.distanceToThalwegGrid[cIdx] = (float) drainageRouter.signedDistanceToThalweg(
                         graph, routedCell, scratchpad.flowAccGrid[cIdx], order,
                         scratchpad.sample.gradMagnitude, wx, wz, worldSeed, scratchpad.basinIdGrid[cIdx]);
+
+                    // Continuous bank displacement from distance to centerline
+                    // (TECHSPEC_AMEND001: operates on final post-meander geometry)
+                    double bankDisp = bankField.displacement(
+                        Math.abs(scratchpad.distanceToThalwegGrid[cIdx]));
+                    hC = hC - bankDisp;
 
                     // Compute feature mask (TECHSPEC §31)
                     scratchpad.featureMaskGrid[cIdx] = (byte) FeatureGrammar.computeFeatureMask(
@@ -832,16 +850,8 @@ public final class ScalarFieldKernel implements FieldKernel {
                         scratchpad.laplacianGrid[cIdx], scratchpad.distanceToThalwegGrid[cIdx],
                         channelField.getWidth(scratchpad.flowAccGrid[cIdx]) * 0.5,
                         scratchpad.confluenceIdGrid[cIdx] != 0L, false, false, false, 0.0);
-
-                    // Cross-section asymmetry (Phase 9 Sprint R5)
-                    // Point bar: sediment deposition on inner bend (+0.5 blocks)
-                    // Cut bank: erosion on outer bend (-0.5 blocks)
-                    if ((scratchpad.featureMaskGrid[cIdx] & FeatureGrammar.F_POINT_BAR) != 0) {
-                        scratchpad.sample.finalSurface = hC + 0.5;
-                    } else if ((scratchpad.featureMaskGrid[cIdx] & FeatureGrammar.F_CUT_BANK) != 0) {
-                        scratchpad.sample.finalSurface = hC - 0.5;
-                    }
                 }
+                scratchpad.sample.finalSurface = hC;
 
                 int bits = landformClassifier.classify(
                     this, scratchpad.sample,
