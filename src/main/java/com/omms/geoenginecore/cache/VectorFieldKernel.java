@@ -64,10 +64,10 @@ public final class VectorFieldKernel implements FieldKernel {
      * @param chunkWorldZ world-coordinate Z of the chunk
      */
     @Override
-    public void evaluateMacroGrid(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ) {
+    public void evaluatePlateGrid(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ) {
         long key = MacroGridCache.packKey(chunkWorldX, chunkWorldZ);
         if (!macroCache.tryGet(key, scratchpad.macroH0)) {
-            fallbackKernel.evaluateMacroGrid(scratchpad, chunkWorldX, chunkWorldZ);
+            fallbackKernel.evaluatePlateGrid(scratchpad, chunkWorldX, chunkWorldZ);
             macroCache.put(key, scratchpad.macroH0);
         }
     }
@@ -84,7 +84,7 @@ public final class VectorFieldKernel implements FieldKernel {
      */
     @Override
     public void rasterizeSurfaceChunk(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ) {
-        evaluateMacroGrid(scratchpad, chunkWorldX, chunkWorldZ);
+        evaluatePlateGrid(scratchpad, chunkWorldX, chunkWorldZ);
 
         final int macroDim = WorkerScratchpad.MACRO_GRID_DIM;
         final double invDelta = 0.25;

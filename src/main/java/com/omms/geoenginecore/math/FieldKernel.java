@@ -31,7 +31,10 @@ public interface FieldKernel {
      * @param chunkWorldX world-coordinate X of the chunk origin
      * @param chunkWorldZ world-coordinate Z of the chunk origin
      */
-    void evaluateMacroGrid(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ);
+    /**
+     * Evaluates the terrain on the plate grid (TECHSPEC_AMEND001).
+     */
+    void evaluatePlateGrid(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ);
 
     /**
      * Rasterizes the 16×16 chunk surface.

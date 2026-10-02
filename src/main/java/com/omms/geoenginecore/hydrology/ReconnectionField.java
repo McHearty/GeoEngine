@@ -33,13 +33,63 @@ public final class ReconnectionField {
 
     /**
      * Finds the nearest channel or outlet within the search radius.
+     * Uses bounded spiral search with maxReconnectionSamples.
      *
      * @param kernel the H₀ kernel
      * @param x current X coordinate
      * @param z current Z coordinate
+     * @param minAccumulation minimum accumulation threshold for channel detection
+     * @return true if a reconnection target was found
+     */
+    public boolean findReconnectionTarget(ScalarFieldKernel kernel,
+                                           double x, double z,
+                                           double minAccumulation) {
+        // Bounded spiral search: expand outward in rings
+        int samplesUsed = 0;
+        double step = 4.0; // Sample every 4 blocks
+        
+        for (int ring = 1; samplesUsed < maxReconnectionSamples; ring++) {
+            double radius = ring * step;
+            if (radius > reconnectRadius) {
+                break;
+            }
+            
+            // Sample 8 points on the ring (D8 directions)
+            for (int angle = 0; angle < 8; angle++) {
+                if (samplesUsed >= maxReconnectionSamples) {
+                    break;
+                }
+                
+                double theta = angle * Math.PI / 4.0;
+                double sx = x + radius * Math.cos(theta);
+                double sz = z + radius * Math.sin(theta);
+                
+                // Check if this point has sufficient flow accumulation
+                // (indicating a channel) or is below sea level (outlet)
+                if (kernel != null) {
+                    double flowAcc = kernel.evaluateFullFlowAccumulation(sx, sz);
+                    if (flowAcc >= minAccumulation) {
+                        return true; // Found channel
+                    }
+                }
+                
+                samplesUsed++;
+            }
+        }
+        
+        return false; // No target found within budget
+    }
+
+    /**
+     * Finds the nearest outlet within the search radius (simplified check).
+     * Legacy API for backward compatibility.
+     *
+     * @param kernel the H₀ kernel (unused in simplified check)
+     * @param x current X coordinate
+     * @param z current Z coordinate
      * @param outletX outlet X reference
      * @param outletZ outlet Z reference
-     * @return true if a reconnection target was found
+     * @return true if within reconnectRadius of outlet
      */
     public boolean findReconnectionTarget(ScalarFieldKernel kernel,
                                            double x, double z,
@@ -48,7 +98,6 @@ public final class ReconnectionField {
         double dx = x - outletX;
         double dz = z - outletZ;
         double dist = Math.sqrt(dx * dx + dz * dz);
-
         return dist <= reconnectRadius;
     }
 

@@ -455,12 +455,20 @@ public final class ScalarFieldKernel implements FieldKernel {
         // Point bar: sediment deposition on inner bend (+0.5 blocks)
         // Cut bank: erosion on outer bend (-0.5 blocks)
         if ((sample.featureMask & com.omms.geoenginecore.hydrology.FeatureGrammar.F_POINT_BAR) != 0) {
-            sample.finalSurface = hFinal + 0.5;
+            hFinal = hFinal + 0.5;
         } else if ((sample.featureMask & com.omms.geoenginecore.hydrology.FeatureGrammar.F_CUT_BANK) != 0) {
-            sample.finalSurface = hFinal - 0.5;
-        } else {
-            sample.finalSurface = hFinal;
+            hFinal = hFinal - 0.5;
         }
+
+        // Hf (continuous authority) = hPre - R + S + asymmetry
+        // R_quant = quantize(R) inside active channel only (TECHSPEC §25.4)
+        // H_terrain = Hf - R_quant (discrete realization only)
+        double rQuant = 0.0;
+        if (flowAcc >= channelField.getMinAccumulation()) {
+            // Inside active channel: apply vertical quantization
+            rQuant = channelRealization.realize(incision);
+        }
+        sample.finalSurface = hFinal - rQuant;
 
         // Diagonal samples for 9-point Hessian curvature stencil
         double hPreNW = evaluatePreFluvialSurface(wx - delta, wz - delta, evaluatePureH0(wx - delta, wz - delta), sample.temperature, sample.humidity, baseSlope);
@@ -504,10 +512,15 @@ public final class ScalarFieldKernel implements FieldKernel {
      * @param chunkWorldZ world-coordinate Z of the chunk origin
      */
     @Override
-    public void evaluateMacroGrid(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ) {
+    /**
+     * Evaluates the terrain on the plate grid (TECHSPEC_AMEND001).
+     * Uses configurable terrainSampleSpacing instead of the legacy fixed 4-block spacing.
+     * Grid dimensions remain 6×6 for backward compatibility.
+     */
+    public void evaluatePlateGrid(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ) {
         final int originX = chunkWorldX - 4;
         final int originZ = chunkWorldZ - 4;
-        final int delta = 4;
+        final int delta = (int) config.terrainSampleSpacing();
         int idx = 0;
 
         for (int gz = 0; gz < WorkerScratchpad.MACRO_GRID_DIM; gz++) {
@@ -553,7 +566,7 @@ public final class ScalarFieldKernel implements FieldKernel {
      */
     @Override
     public void rasterizeSurfaceChunk(WorkerScratchpad scratchpad, int chunkWorldX, int chunkWorldZ) {
-        evaluateMacroGrid(scratchpad, chunkWorldX, chunkWorldZ);
+        evaluatePlateGrid(scratchpad, chunkWorldX, chunkWorldZ);
 
         final int macroDim = WorkerScratchpad.MACRO_GRID_DIM;
         final double invDelta = 0.25;
