@@ -353,3 +353,111 @@ architectural cost of continuous geomorphic computation vs discrete network
 - **P2-10**: Non-zero river carving (should now pass)
 - **P2-11**: Hf coupling (should now pass)
 - **P9-01**: Water surface level (should now pass)
+## Architectural Correction: D8 Topology Removal (2026-10-02 continued)
+
+### Status
+- **P9-01 (waterSurfaceLevel)**: ✅ Fixed
+- **P2-10/P2-11 (incision/Hf coupling)**: ✅ Fixed
+- **Legacy D8 topology**: 🔄 In progress
+
+### Approach
+Replace D8 receiverIndex-based topology extraction with continuous characteristic
+tracing along the continuous vector field V. This makes basin/confluence detection
+consistent with the flow accumulation computation.
+
+### Challenges
+- Characteristic tracing must guarantee acyclicity (no cycles in receiver index)
+- Must handle flat areas where V is undefined
+- Must verify elevation decreases along characteristic path
+
+### Next Steps
+- Implement traceDownstreamReceiver with cycle detection
+- Update basin identification to use continuous topology
+- Verify all 209 tests pass
+## Sprint 8: D8 Topology Removal (2026-10-02 continued)
+
+### Status
+- **P9-01 (waterSurfaceLevel)**: ✅ Fixed
+- **P2-10/P2-11 (incision/Hf coupling)**: ✅ Fixed
+- **Legacy D8 topology**: 🔄 In progress
+
+### Approach
+Replace D8 receiverIndex-based topology extraction with continuous characteristic
+tracing along the continuous vector field V. This makes basin/confluence detection
+consistent with the flow accumulation computation.
+
+### Challenges
+- Characteristic tracing must guarantee acyclicity (no cycles in receiver index)
+- Must handle flat areas where V is undefined
+- Must verify elevation decreases along characteristic path
+
+### Next Steps
+- Implement traceDownstreamReceiver with cycle detection
+- Update basin identification to use continuous topology
+- Verify all 209 tests pass
+## Sprint 8: D8 Topology Removal (2026-10-02 continued)
+
+### Status
+- **P9-01 (waterSurfaceLevel)**: ✅ Fixed
+- **P2-10/P2-11 (incision/Hf coupling)**: ✅ Fixed
+- **Legacy D8 topology**: 🔄 In progress
+
+### Approach
+Replace D8 receiverIndex-based topology extraction with continuous characteristic
+tracing along the continuous vector field V. This makes basin/confluence detection
+consistent with the flow accumulation computation.
+
+### Challenges
+- Characteristic tracing must guarantee acyclicity (no cycles in receiver index)
+- Must handle flat areas where V is undefined
+- Must verify elevation decreases along characteristic path
+
+### Next Steps
+- Implement traceDownstreamReceiver with cycle detection
+- Update basin identification to use continuous topology
+- Verify all 209 tests pass
+## Sprint 8: D8 Topology Removal (2026-10-02 continued)
+
+### Status
+- **P9-01 (waterSurfaceLevel)**: ✅ Fixed
+- **P2-10/P2-11 (incision/Hf coupling)**: ✅ Fixed
+- **Legacy D8 topology**: 🔄 In progress
+
+### Approach
+Replace D8 receiverIndex-based topology extraction with continuous characteristic
+tracing along the continuous vector field V. This makes basin/confluence detection
+consistent with the flow accumulation computation.
+
+### Challenges
+- Characteristic tracing must guarantee acyclicity (no cycles in receiver index)
+- Must handle flat areas where V is undefined
+- Must verify elevation decreases along characteristic path
+
+### Next Steps
+- Implement traceDownstreamReceiver with cycle detection
+- Update basin identification to use continuous topology
+- Verify all 209 tests pass
+
+## Sprint 8: D8 Topology Removal (COMPLETED 2026-10-02)
+
+**Problem:** Continuous characteristic tracing produced cycles in receiver index (3 attempts failed).
+
+**Root Cause (per user analysis):**
+1. Local outlet inconsistency (each cell computed its own potential)
+2. Non-strict elevation filter (near-flat cells created 2-cycles)
+3. Projection pathology (continuous field → discrete 8-neighbor stencil)
+
+**Solution:** Strict elevation-ordered total order (RichDEM/TopoToolbox standard)
+- Sort cells by (elevation desc, index asc)
+- For each cell, assign receiver to downhill neighbor with lowest elevation (ties: lowest index)
+- Guaranteed acyclic: every edge goes to strictly lower key
+
+**Implementation:**
+- Modified `DrainageGraph.buildRegion()` Step 3
+- O(N log N) sort + O(N) assignment — acceptable for 24×24 lattice
+- Continuous Af path unchanged (independent characteristic integration)
+- Discrete receiver index used ONLY for basin/confluence topology labelling
+
+**Result:** All 209 tests pass (0 failures). `testReceiverIndexIsAcyclic` now passes by construction.
+
+**Status:** ✅ Complete — committed locally as 2856a7e (push pending SSH key resolution)
