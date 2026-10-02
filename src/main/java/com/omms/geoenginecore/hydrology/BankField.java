@@ -60,8 +60,15 @@ public final class BankField {
             return bankDistance * bankSlope;
         }
 
-        // Beyond bank: flat with containment berm
-        return halfBankWidth * bankSlope + containmentBerm;
+        // Beyond bank: ramp up to containment berm, then flat
+        // Continuous transition from bank top to berm
+        double bankTopHeight = halfBankWidth * bankSlope;
+        double bermDistance = distance - bankWidth;
+        if (bermDistance <= 1.0) {
+            // Ramp up to berm height over 1 block
+            return bankTopHeight + containmentBerm * bermDistance;
+        }
+        return bankTopHeight + containmentBerm;
     }
 
     /**

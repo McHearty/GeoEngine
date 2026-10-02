@@ -97,12 +97,13 @@ public class BankGeometryTest {
         assertTrue(d3 > 0.0);
 
         // Check continuity at bank/berm boundary (distance = 4.0)
+        // Continuous transition: ramps from 1.0 to 1.5 over 1 block
         double d4 = bank.displacement(3.999);
         double d5 = bank.displacement(4.000);
         double d6 = bank.displacement(4.001);
 
         assertEquals(1.0, d5, 1e-9);
-        assertEquals(1.5, d6, 1e-9);
+        assertTrue(d6 > 1.0 && d6 < 1.5); // On the ramp
         // d4 should be close to 1.0 (linear ramp)
         assertTrue(d4 > 0.99 && d4 < 1.0);
     }
