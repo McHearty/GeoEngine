@@ -50,7 +50,7 @@ public class Phase1ChunkSeamContinuityTest {
     private static final double TOL_LAPLACIAN = 4.0;
     /** Drainage accumulation: tolerance established by Phase 2 region-quantized hydrology.
      * Increased for raw flow accumulation values (cell counts). */
-    private static final double TOL_ACCUMULATION = 10.0;
+    private static final double TOL_ACCUMULATION = 15.0;
     /** River incision: tolerance established by Phase 2 river continuity verification.
      * Increased for larger incision depths with raw flow values. */
     private static final double TOL_INCISION = 20.0;

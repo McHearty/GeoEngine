@@ -161,49 +161,7 @@ public final class DrainageGraph {
             }
         }
 
-        // Step 2: Compute flow accumulation using continuous characteristic integration
-        // (TECHSPEC_AMEND001: ∇·(Af V) = q, solved by integrating along characteristics)
-        // No D8 receivers - each cell traces upstream independently.
-        for (int gz = 0; gz < GRID_DIM; gz++) {
-            for (int gx = 0; gx < GRID_DIM; gx++) {
-                int currentIdx = (gz * GRID_DIM) + gx;
-                double wx = gridOriginX + (gx * CELL_SIZE);
-                double wz = gridOriginZ + (gz * CELL_SIZE);
-
-                // Find outlet reference (lowest neighbor) for potential computation
-                double lowestNeighborElev = elevation[currentIdx];
-                int lowestNeighborIdx = -1;
-                for (int ddz = -1; ddz <= 1; ddz++) {
-                    int nz = gz + ddz;
-                    if (nz < 0 || nz >= GRID_DIM) continue;
-                    for (int ddx = -1; ddx <= 1; ddx++) {
-                        if (ddx == 0 && ddz == 0) continue;
-                        int nx = gx + ddx;
-                        if (nx < 0 || nx >= GRID_DIM) continue;
-                        int neighborIdx = (nz * GRID_DIM) + nx;
-                        if (elevation[neighborIdx] < lowestNeighborElev) {
-                            lowestNeighborElev = elevation[neighborIdx];
-                            lowestNeighborIdx = neighborIdx;
-                        }
-                    }
-                }
-
-                // Compute outlet reference point
-                double outletX = wx;
-                double outletZ = wz;
-                if (lowestNeighborIdx >= 0) {
-                    outletX = gridOriginX + ((lowestNeighborIdx % GRID_DIM) * CELL_SIZE);
-                    outletZ = gridOriginZ + ((lowestNeighborIdx / GRID_DIM) * CELL_SIZE);
-                }
-
-                // Compute flow accumulation by integrating along characteristics
-                // This solves ∇·(Af V) = q by tracing upstream and integrating source density
-                flowAccumulation[currentIdx] = accumulator.computeAccumulation(
-                    kernel, wx, wz, outletX, outletZ);
-            }
-        }
-
-        // Step 3: Build receiver index using strict elevation-ordered total order
+        // Step 2: Build receiver index using strict elevation-ordered total order
         // (TECHSPEC_AMEND001: guaranteed acyclic by construction)
         // Every edge goes to a strictly lower key (elevation, then index), so no cycles can exist.
         Arrays.fill(inDegree, 0);
@@ -250,6 +208,38 @@ public final class DrainageGraph {
                 upstreamCount[bestIdx]++;
             }
             // else: sink (no downhill neighbor) — receiverIndex remains -1
+        }
+
+        // Step 3: Solve conservation equation ∇·(Af V) = q via topological accumulation
+        // (TECHSPEC_AMEND001: true catchment area computation, not distance integration)
+        // Use Kahn's algorithm to process from sources (top of slope) to sinks.
+        // Each cell contributes source density q=1.0 plus all upstream flow to its receiver.
+        Arrays.fill(flowAccumulation, 1.0); // Base source density q = 1.0 per cell
+
+        // Topological sort via Kahn's algorithm (process sources first)
+        // inDegree[i] = number of cells that flow INTO cell i (upstream contributors)
+        // Cells with inDegree=0 are sources (no upstream contributors) — process first
+        int queueHead = 0;
+        int queueTail = 0;
+        for (int i = 0; i < TOTAL_CELLS; i++) {
+            if (inDegree[i] == 0) {
+                // No upstream contributors — source at top of slope
+                topoQueue[queueTail++] = i;
+            }
+        }
+
+        while (queueHead < queueTail) {
+            int cell = topoQueue[queueHead++];
+            // Propagate this cell's accumulated flow to its receiver (downstream)
+            int receiver = receiverIndex[cell];
+            if (receiver != -1) {
+                flowAccumulation[receiver] += flowAccumulation[cell];
+                inDegree[receiver]--;
+                if (inDegree[receiver] == 0) {
+                    // All upstream contributors processed — ready to process this cell
+                    topoQueue[queueTail++] = receiver;
+                }
+            }
         }
 
         // Step 4: Reset topology labels
