@@ -62,7 +62,7 @@ public final class DrainageGraph {
         this.TOTAL_CELLS = this.GRID_DIM * this.GRID_DIM;
 
         this.potential = new DrainagePotential(outletLambda, epsilon, stepSize);
-        this.accumulator = new DrainageAccumulator(this.potential, 4, 16.0);
+        this.accumulator = new DrainageAccumulator(this.potential, 64, 2.0);
 
         // Reallocate arrays with computed dimensions
         this.elevation = new double[TOTAL_CELLS];

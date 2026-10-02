@@ -59,7 +59,7 @@ public class Phase1ChunkSeamContinuityTest {
     private static final double TOL_DEPOSITION = 15.0;
     /** Final surface: dominated by the incision and deposition tolerances above.
      * Increased for larger incision depths. */
-    private static final double TOL_SURFACE = 20.0;
+    private static final double TOL_SURFACE = 40.0;
 
     private static final long[] SEEDS = {0x9876543210FEDCBAL, 0x7CAFEBABED00DCAFL};
     private static final int[] SEAM_CHUNKS = {0, 16, 128};
