@@ -148,12 +148,15 @@ public final class DrainageGraph {
         this.gridOriginZ = regionOriginZ - (HALO_CELLS * CELL_SIZE);
 
         // Step 1: Sample 24x24 coarse elevation lattice H0(gx, gz) once
+        // Use cheap proxy for drainage topology: tectonic uplift only,
+        // no climate/erosion fine-scale variation. Large-scale drainage
+        // patterns are driven by uplift, not erosion.
         int idx = 0;
         for (int gz = 0; gz < GRID_DIM; gz++) {
             double wz = gridOriginZ + (gz * CELL_SIZE);
             for (int gx = 0; gx < GRID_DIM; gx++) {
                 double wx = gridOriginX + (gx * CELL_SIZE);
-                elevation[idx] = kernel.evaluatePureH0(wx, wz);
+                elevation[idx] = kernel.evaluatePureH0Proxy(wx, wz);
                 idx++;
             }
         }

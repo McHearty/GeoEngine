@@ -178,6 +178,24 @@ public final class ScalarFieldKernel implements FieldKernel {
     }
 
     /**
+     * Cheap H₀ proxy for drainage topology: tectonic uplift only.
+     * No climate/erosion fine-scale variation. Large-scale drainage
+     * patterns are driven by uplift, not erosion.
+     *
+     * @param wx world-space X
+     * @param wz world-space Z
+     * @return proxy H₀ (tectonic only)
+     */
+    public double evaluatePureH0Proxy(double wx, double wz) {
+        double sx = stressWarp.getWarpX(wx, wz);
+        double sz = stressWarp.getWarpZ(wx, wz);
+        double warpx = wx + sx;
+        double warpz = wz + sz;
+
+        return tectonicField.evaluate(warpx, warpz);
+    }
+
+    /**
      * Computes the hydrology-local wetness field (TECHSPEC_AMEND001 A3.16).
      *
      * <p>Wetness is derived from the climate/humidity field and scaled
