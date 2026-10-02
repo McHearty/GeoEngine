@@ -461,3 +461,22 @@ consistent with the flow accumulation computation.
 **Result:** All 209 tests pass (0 failures). `testReceiverIndexIsAcyclic` now passes by construction.
 
 **Status:** ✅ Complete — committed locally as 2856a7e (push pending SSH key resolution)
+
+## Sprint 9: True Conservation Equation Flow Accumulation (COMPLETED 2026-10-02)
+
+**Problem:** DrainageAccumulator used step-counting integration (64 steps × 2.0 blocks, constant 1.0 density) producing distance-proportional accumulation, not true catchment area.
+
+**Solution:** Solve discrete conservation equation ∇·(A_f V) = q using Kahn's algorithm on the elevation-ordered D8 receiver graph.
+
+**Implementation:**
+- Modified `DrainageGraph.buildRegion()` to use topological sort for flow accumulation
+- Process cells from sources (top of slope) to sinks (bottom)
+- Each cell contributes source density q=1.0 plus all upstream flow to its receiver
+- O(N log N) sort + O(N) propagation — efficient for 24×24 lattice
+
+**Results:**
+- All 209 tests pass (0 failures)
+- Golden files regenerated (flow values now represent true catchment area)
+- Seam tolerances updated (TOL_ACCUMULATION: 10.0 → 15.0; InterRegion: 5.0 → 6.0)
+
+**Status:** ✅ Complete — committed as 1a8c51b
