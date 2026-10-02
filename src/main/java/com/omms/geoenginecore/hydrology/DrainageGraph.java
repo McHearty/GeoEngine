@@ -203,74 +203,53 @@ public final class DrainageGraph {
             }
         }
 
-        // Step 3: Derive D8 receiver index from continuous vector field (for topology extraction)
-        // This is derived, not used for accumulation computation.
+        // Step 3: Build receiver index using strict elevation-ordered total order
+        // (TECHSPEC_AMEND001: guaranteed acyclic by construction)
+        // Every edge goes to a strictly lower key (elevation, then index), so no cycles can exist.
         Arrays.fill(inDegree, 0);
         Arrays.fill(upstreamCount, 0);
         Arrays.fill(receiverIndex, -1);
 
-        for (int gz = 0; gz < GRID_DIM; gz++) {
-            for (int gx = 0; gx < GRID_DIM; gx++) {
-                int currentIdx = (gz * GRID_DIM) + gx;
-                double wx = gridOriginX + (gx * CELL_SIZE);
-                double wz = gridOriginZ + (gz * CELL_SIZE);
+        // Build total order: cells sorted by (elevation desc, index asc)
+        Integer[] order = new Integer[TOTAL_CELLS];
+        for (int i = 0; i < TOTAL_CELLS; i++) {
+            order[i] = i;
+        }
+        Arrays.sort(order, (a, b) -> {
+            int cmp = Double.compare(elevation[b], elevation[a]); // descending elevation
+            return (cmp != 0) ? cmp : Integer.compare(a, b);      // ascending index (tie-break)
+        });
 
-                // Find outlet reference (lowest neighbor)
-                double lowestNeighborElev = elevation[currentIdx];
-                int lowestNeighborIdx = -1;
-                for (int ddz = -1; ddz <= 1; ddz++) {
-                    int nz = gz + ddz;
-                    if (nz < 0 || nz >= GRID_DIM) continue;
-                    for (int ddx = -1; ddx <= 1; ddx++) {
-                        if (ddx == 0 && ddz == 0) continue;
-                        int nx = gx + ddx;
-                        if (nx < 0 || nx >= GRID_DIM) continue;
-                        int neighborIdx = (nz * GRID_DIM) + nx;
-                        if (elevation[neighborIdx] < lowestNeighborElev) {
-                            lowestNeighborElev = elevation[neighborIdx];
-                            lowestNeighborIdx = neighborIdx;
-                        }
-                    }
-                }
+        // D8 neighbor offsets
+        final int[] DX = {-1, 0, 1, -1, 1, -1, 0, 1};
+        final int[] DZ = {-1, -1, -1, 0, 0, 1, 1, 1};
 
-                double outletX = wx;
-                double outletZ = wz;
-                if (lowestNeighborIdx >= 0) {
-                    outletX = gridOriginX + ((lowestNeighborIdx % GRID_DIM) * CELL_SIZE);
-                    outletZ = gridOriginZ + ((lowestNeighborIdx / GRID_DIM) * CELL_SIZE);
-                }
+        for (int cell : order) {
+            int gx = cell % GRID_DIM;
+            int gz = cell / GRID_DIM;
 
-                // Get drainage vector from continuous field
-                double[] v = potential.drainageVector(kernel, wx, wz, outletX, outletZ);
+            double bestElev = elevation[cell];
+            int bestIdx = -1;
 
-                // Derive downstream receiver by projecting onto 8 directions
-                // (derived topology, not used for accumulation)
-                int bestIdx = -1;
-                double bestDot = -1.0;
-                for (int ddz = -1; ddz <= 1; ddz++) {
-                    int nz = gz + ddz;
-                    if (nz < 0 || nz >= GRID_DIM) continue;
-                    for (int ddx = -1; ddx <= 1; ddx++) {
-                        if (ddx == 0 && ddz == 0) continue;
-                        int nx = gx + ddx;
-                        if (nx < 0 || nx >= GRID_DIM) continue;
-                        int neighborIdx = (nz * GRID_DIM) + nx;
-                        double elevDiff = elevation[currentIdx] - elevation[neighborIdx];
-                        if (elevDiff < -1e-6) continue;
-                        double dot = v[0] * ddx + v[1] * ddz;
-                        if (dot > bestDot) {
-                            bestDot = dot;
-                            bestIdx = neighborIdx;
-                        }
-                    }
-                }
-
-                receiverIndex[currentIdx] = bestIdx;
-                if (bestIdx != -1) {
-                    inDegree[bestIdx]++;
-                    upstreamCount[bestIdx]++;
+            for (int k = 0; k < 8; k++) {
+                int nx = gx + DX[k];
+                int nz = gz + DZ[k];
+                if (nx < 0 || nx >= GRID_DIM || nz < 0 || nz >= GRID_DIM) continue;
+                int nIdx = (nz * GRID_DIM) + nx;
+                double nElev = elevation[nIdx];
+                // Strict downhill, or equal elevation with lower index (total order)
+                if (nElev < bestElev || (nElev == bestElev && nIdx < cell)) {
+                    bestElev = nElev;
+                    bestIdx = nIdx;
                 }
             }
+
+            if (bestIdx != -1 && bestElev < elevation[cell]) {
+                receiverIndex[cell] = bestIdx;
+                inDegree[bestIdx]++;
+                upstreamCount[bestIdx]++;
+            }
+            // else: sink (no downhill neighbor) — receiverIndex remains -1
         }
 
         // Step 4: Reset topology labels
