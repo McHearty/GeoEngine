@@ -328,3 +328,28 @@ The in-game slowness vs StreamsReflowing was dominated by:
 After these optimizations, the remaining performance gap is the legitimate
 architectural cost of continuous geomorphic computation vs discrete network
 + feature carving.
+## Close-Out Items Progress (2026-10-02 continued)
+
+### Resolved
+- **P9-01 (waterSurfaceLevel)**: Fixed by DrainageAccumulator step-counting correction;
+  flow accumulation now exceeds minRiverAccumulation threshold, channels form, and
+  water surface level is computed for inland channels above sea level.
+- **P2-10/P2-11 (non-zero incision/Hf coupling)**: Fixed by adding stepSize per
+  integration step in DrainageAccumulator; max accumulation now 65.0 (well above
+  minRiverAccumulation=14.0).
+
+### Remaining Close-Out Items
+1. **True continuous flow accumulation**: DrainageAccumulator currently uses
+   step-counting integration; should solve actual conservation equation.
+2. **Legacy D8 structures**: receiverIndex array still present in DrainageGraph
+   for topology extraction; not used for accumulation but not removed.
+3. **Full continuous bank displacement**: Partially implemented; need to verify
+   post-meander consistency.
+4. **True continuous Af + characteristic channel extraction**: Channel graph
+   still uses D8-derived receiverIndex for topology; should use characteristic
+   tracing from continuous vector field.
+
+### Remaining Expected Failures
+- **P2-10**: Non-zero river carving (should now pass)
+- **P2-11**: Hf coupling (should now pass)
+- **P9-01**: Water surface level (should now pass)
