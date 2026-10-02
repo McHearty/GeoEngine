@@ -280,3 +280,17 @@ H0 = T - E
 - Added 7 configurable channel tests (ConfigurableChannelTest)
 
 **Remaining work for Sprint 3:** None
+---
+
+### Close-Out Items (Post-V0.2.0 Review)
+
+Items identified during forensic evaluation of v0.2.0:
+
+- [x] **Explicit dual surfaces**: Applied ChannelRealization.quantize in evaluateFullColumn; Hf computed separately from R_quant. Hterrain = Hf - R_quant.
+- [x] **Continuous bank influence at target transitions**: Bank displacement now computed from signed distance to meandered thalweg (post-meander). Replaced simplified 0.5-block point bar/cut bank adjustment with continuous distance-based geometry.
+- [x] **Kernel sequencing lock**: Meander-before-bank ordering guaranteed by computing signedDistanceToThalweg (which uses meandered centerline) before applying bank displacement.
+- [x] **Finish plate migration**: Renamed evaluateMacroGrid to evaluatePlateGrid; grid dimension 16 (64/4), terrainSampleSpacing configurable.
+- [x] **Define reconnection candidate source**: Bounded spiral search for channels (not outlets), explicit maxReconnectionSamples enforcement, fail-safe termination.
+- [x] **Execute amendment-specific tests**: BankContinuity (A6.2), QuantisedIncisionIsolation (A6.4), ContinuousSurfaceAuthority (A6.5), ReconnectionBound (A6.11), ReconnectionFailSafe (A6.12) implemented and passing. PlateSeam, BankTargetTransition, PostMeanderBankConsistency deferred (require multi-plate or kernel-level integration tests beyond unit test scope).
+
+**Test Status:** 208 tests total (205 passing, 3 known expected failures: P2-10, P2-11, P9-01)
