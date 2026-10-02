@@ -7,6 +7,7 @@ import com.omms.geoenginecore.dimension.OverworldProfile;
 import com.omms.geoenginecore.feature.SpecialFeatureDetector;
 import com.omms.geoenginecore.math.FieldKernel;
 import com.omms.geoenginecore.math.GeoConfig;
+import com.omms.geoenginecore.memory.ChunkScratchpadCache;
 import com.omms.geoenginecore.memory.ScratchpadProvider;
 import com.omms.geoenginecore.memory.WorkerScratchpad;
 import com.omms.geoenginecore.raster.SectionClassifier;
@@ -99,6 +100,8 @@ public class GeoChunkGenerator extends ChunkGenerator {
     private long worldSeed;
     /** Dimension id: 0 overworld, 1 nether, 2 end. */
     private final int dimensionId;
+    /** Cache of recently rasterized chunk scratchpads. */
+    private final ChunkScratchpadCache chunkCache = new ChunkScratchpadCache();
     /** Resolved noise generator settings (surface rules, materials). */
     private final Holder<NoiseGeneratorSettings> settings;
     /** Validated configuration. */
@@ -224,9 +227,16 @@ public class GeoChunkGenerator extends ChunkGenerator {
         ChunkPos pos = chunk.getPos();
         int chunkWorldX = pos.getMinBlockX();
         int chunkWorldZ = pos.getMinBlockZ();
+        int chunkX = pos.x;
+        int chunkZ = pos.z;
 
-        WorkerScratchpad scratchpad = ScratchpadProvider.get();
-        kernel.rasterizeSurfaceChunk(scratchpad, chunkWorldX, chunkWorldZ);
+        // Check cache first (reduces double-rasterization)
+        WorkerScratchpad scratchpad = chunkCache.get(chunkX, chunkZ);
+        if (scratchpad == null) {
+            scratchpad = ScratchpadProvider.get();
+            kernel.rasterizeSurfaceChunk(scratchpad, chunkWorldX, chunkWorldZ);
+            chunkCache.put(chunkX, chunkZ, scratchpad);
+        }
 
         HeightmapWriter.populate(
             chunk, scratchpad.surfaceGrid, config.seaLevel(), materialResolver.resolveSolid(config.seaLevel())
@@ -263,10 +273,17 @@ public class GeoChunkGenerator extends ChunkGenerator {
         ChunkPos pos = chunk.getPos();
         int originX = pos.getMinBlockX();
         int originZ = pos.getMinBlockZ();
+        int chunkX = pos.x;
+        int chunkZ = pos.z;
 
-        WorkerScratchpad scratchpad = ScratchpadProvider.get();
-        // Crucial fix: Freshly rasterize scratchpad for this chunk on this worker thread (§17, §18)
-        kernel.rasterizeSurfaceChunk(scratchpad, originX, originZ);
+        // Use cached scratchpad if available (avoids double-rasterization)
+        WorkerScratchpad scratchpad = chunkCache.get(chunkX, chunkZ);
+        if (scratchpad == null) {
+            // Fallback: rasterize fresh (cache miss or evicted)
+            scratchpad = ScratchpadProvider.get();
+            kernel.rasterizeSurfaceChunk(scratchpad, originX, originZ);
+            chunkCache.put(chunkX, chunkZ, scratchpad);
+        }
 
         WorldGenerationContext genContext = new WorldGenerationContext(this, level);
 
