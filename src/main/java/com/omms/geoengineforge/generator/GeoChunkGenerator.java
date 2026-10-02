@@ -470,7 +470,20 @@ public class GeoChunkGenerator extends ChunkGenerator {
      */
     @Override
     public int getBaseHeight(int x, int z, Heightmap.Types type, LevelHeightAccessor level, RandomState randomState) {
-        WorkerScratchpad sp = ScratchpadProvider.get();
+        // Try cached surface grid first (cheap path)
+        int chunkX = x >> 4;
+        int chunkZ = z >> 4;
+        WorkerScratchpad sp = chunkCache.get(chunkX, chunkZ);
+        if (sp != null) {
+            int localX = x & 15;
+            int localZ = z & 15;
+            int idx = (localZ << 4) | localX;
+            int surf = (int) Math.round(sp.surfaceGrid[idx]);
+            return Math.clamp(surf, level.getMinBuildHeight(), level.getMaxBuildHeight() - 1);
+        }
+
+        // Fallback: full column evaluation (expensive, but correct)
+        sp = ScratchpadProvider.get();
         kernel.evaluateFullColumn(x, z, sp.sample);
         int surf = (int) Math.round(sp.sample.finalSurface);
         return Math.clamp(surf, level.getMinBuildHeight(), level.getMaxBuildHeight() - 1);
