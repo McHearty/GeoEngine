@@ -6,38 +6,91 @@ import com.omms.geoenginecore.math.GeoMath;
 import java.util.Arrays;
 
 /**
- * Authoritative topological D8 drainage graph (TECHSPEC §26, §27).
+ * Continuous drainage-field model for flow accumulation (TECHSPEC_AMEND001).
  *
- * <p>Routes flow on a 24×24 coarse lattice (16×16 core plus a
- * 4-cell halo on every side, covering 384×384 blocks). The halo
- * eliminates region-boundary truncation, and flow is accumulated
- * strictly downstream along steepest-descent D8 links.
+ * <p>Computes the flow accumulation field Af by integrating the
+ * conservation equation along characteristics of the continuous
+ * drainage vector field. The vector field is derived from the
+ * outlet-aware drainage potential Φ = H₀ + λ·D_outlet.
+ *
+ * <p>Grid dimensions are configurable via constructor parameters
+ * (TECHSPEC_AMEND001 A2.2). The model uses a coarse lattice for
+ * sampling but computes the drainage field continuously.
  */
 public final class DrainageGraph {
-    /** Edge length of one routing cell in blocks. */
-    public static final int CELL_SIZE = 16;
-    /** Core cells per axis: the 256×256 block active region. */
-    public static final int CORE_CELLS = 16;
-    /** Halo cells per boundary: 64 blocks of context. */
-    public static final int HALO_CELLS = 4;
+    /** Edge length of one routing cell in blocks (configurable). */
+    public final int CELL_SIZE;
+    /** Core cells per axis (configurable from plateScale/gridSpacing). */
+    public final int CORE_CELLS;
+    /** Halo cells per boundary (configurable). */
+    public final int HALO_CELLS;
     /** Total cells per axis (core + halo on both sides). */
-    public static final int GRID_DIM = CORE_CELLS + (HALO_CELLS * 2);
+    public final int GRID_DIM;
     /** Total cells in the expanded grid. */
-    public static final int TOTAL_CELLS = GRID_DIM * GRID_DIM;
+    public final int TOTAL_CELLS;
+    /** Outlet-aware drainage potential. */
+    private final DrainagePotential potential;
+    /** Continuous drainage accumulator. */
+    private final DrainageAccumulator accumulator;
+
+    /**
+     * Constructs a drainage graph with the specified grid configuration.
+     *
+     * @param gridSpacing routing cell size in blocks (A2.2 gridSpacing)
+     * @param plateScale overall plate/region size in blocks (A2.2 plateScale)
+     */
+    public DrainageGraph(double gridSpacing, double plateScale) {
+        this(gridSpacing, plateScale, 0.05, 1e-6, 1.0);
+    }
+
+    /**
+     * Constructs a drainage graph with the specified grid configuration
+     * and continuous drainage-field parameters.
+     *
+     * @param gridSpacing routing cell size in blocks (A2.2 gridSpacing)
+     * @param plateScale overall plate/region size in blocks (A2.2 plateScale)
+     * @param outletLambda outlet attraction strength λ
+     * @param epsilon regularization constant ε
+     * @param stepSize finite difference step size in blocks
+     */
+    public DrainageGraph(double gridSpacing, double plateScale, double outletLambda,
+                         double epsilon, double stepSize) {
+        this.CELL_SIZE = (int) Math.max(4.0, gridSpacing);
+        this.CORE_CELLS = (int) Math.max(2, plateScale / this.CELL_SIZE);
+        this.HALO_CELLS = 4;
+        this.GRID_DIM = this.CORE_CELLS + (this.HALO_CELLS * 2);
+        this.TOTAL_CELLS = this.GRID_DIM * this.GRID_DIM;
+
+        this.potential = new DrainagePotential(outletLambda, epsilon, stepSize);
+        this.accumulator = new DrainageAccumulator(this.potential, 4, 16.0);
+
+        // Reallocate arrays with computed dimensions
+        this.elevation = new double[TOTAL_CELLS];
+        this.receiverIndex = new int[TOTAL_CELLS];
+        this.flowAccumulation = new double[TOTAL_CELLS];
+        this.upstreamCount = new int[TOTAL_CELLS];
+        this.basinCell = new int[TOTAL_CELLS];
+        this.confluenceCell = new int[TOTAL_CELLS];
+        this.basinStableId = new long[TOTAL_CELLS];
+        this.confluenceStableId = new long[TOTAL_CELLS];
+        this.basinSinkCell = new int[TOTAL_CELLS];
+        this.inDegree = new int[TOTAL_CELLS];
+        this.topoQueue = new int[TOTAL_CELLS];
+    }
 
     /** H₀ elevation at each cell center. */
-    public final double[] elevation = new double[TOTAL_CELLS];
+    public final double[] elevation;
     /** Downstream receiver of each cell (−1 for sinks). */
-    public final int[] receiverIndex = new int[TOTAL_CELLS];
+    public final int[] receiverIndex;
     /** Catchment discharge A_f of each cell, including upstream contributions. */
-    public final double[] flowAccumulation = new double[TOTAL_CELLS];
+    public final double[] flowAccumulation;
     /**
      * Upstream sender count per cell, snapshotted when routing is
      * resolved (TECHSPEC §26, §31). A cell with upstreamCount ≥ 2 is a
      * confluence: the first-class confluence detection signal that
      * Kahn's algorithm would otherwise consume.
      */
-    public final int[] upstreamCount = new int[TOTAL_CELLS];
+    public final int[] upstreamCount;
     /**
      * Basin ordinal of each cell (index into {@link #basinStableId});
      * -1 until {@link HydrologyField#analyze} completes. The basin
@@ -45,15 +98,15 @@ public final class DrainageGraph {
      * regional sink (elevations strictly decrease along the receiver
      * chain, so every walk terminates).
      */
-    public final int[] basinCell = new int[TOTAL_CELLS];
+    public final int[] basinCell;
     /** Confluence ordinal of each cell; -1 when the cell is not a confluence. */
-    public final int[] confluenceCell = new int[TOTAL_CELLS];
+    public final int[] confluenceCell;
     /** Stable scoped basin IDs indexed by basin ordinal (§80). */
-    public final long[] basinStableId = new long[TOTAL_CELLS];
+    public final long[] basinStableId;
     /** Stable scoped confluence IDs indexed by confluence ordinal (§80). */
-    public final long[] confluenceStableId = new long[TOTAL_CELLS];
+    public final long[] confluenceStableId;
     /** Sink cell of each basin, indexed by basin ordinal. */
-    public final int[] basinSinkCell = new int[TOTAL_CELLS];
+    public final int[] basinSinkCell;
     /** Number of basins in this region (valid once analyzed). */
     public int basinCount;
     /** Number of confluences in this region (valid once analyzed). */
@@ -67,9 +120,9 @@ public final class DrainageGraph {
     public volatile boolean topologyAnalyzed;
 
     /** Unprocessed upstream children per cell, used by Kahn's algorithm. */
-    private final int[] inDegree = new int[TOTAL_CELLS];
+    private final int[] inDegree;
     /** FIFO work queue for topological accumulation. */
-    private final int[] topoQueue = new int[TOTAL_CELLS];
+    private final int[] topoQueue;
 
     /** World X of the expanded grid origin. */
     private int gridOriginX;
@@ -77,25 +130,18 @@ public final class DrainageGraph {
     private int gridOriginZ;
 
     /**
-     * Builds the authoritative D8 drainage network across the 24×24
-     * expanded catchment (TECHSPEC §26, §27).
+     * Builds the continuous drainage-field model across the expanded
+     * catchment (TECHSPEC_AMEND001).
      *
-     * <p>Step 1 samples H₀ at every cell center (base discharge 1.0);
-     * Step 2 assigns each cell to its steepest downhill D8 neighbor;
-     * Step 3 runs Kahn's topological sort from headwaters and
-     * propagates full upstream catchment discharge downstream, so
-     * every cell's A_f equals its exact catchment size.
-     *
-     * <p>When {@code iterations} > 1, the receiver assignment and
-     * flow accumulation are repeated K times to converge on a
-     * stable flow network (TECHSPEC §24). Each pass re-evaluates
-     * receivers based on accumulated discharge potential, resolving
-     * flat areas and pits that single-pass routing cannot handle.
+     * <p>Step 1 samples H₀ at every cell center. Step 2 computes the
+     * continuous drainage vector field V = -∇Φ/‖∇Φ‖ from the
+     * outlet-aware potential Φ. Step 3 computes flow accumulation Af
+     * by integrating along characteristics of V (not using D8 routing).
      *
      * @param kernel H₀ kernel of the current configuration
      * @param regionOriginX world X of the region's core origin
      * @param regionOriginZ world Z of the region's core origin
-     * @param iterations fixed-iteration count K (≥ 1)
+     * @param iterations fixed-iteration count K (≥ 1); used for convergence
      */
     public void buildRegion(ScalarFieldKernel kernel, int regionOriginX, int regionOriginZ, int iterations) {
         this.gridOriginX = regionOriginX - (HALO_CELLS * CELL_SIZE);
@@ -112,109 +158,119 @@ public final class DrainageGraph {
             }
         }
 
-        // Fixed-iteration drainage loop (TECHSPEC §24)
-        for (int k = 0; k < iterations; k++) {
-            // Reset per-pass state
-            Arrays.fill(inDegree, 0);
-            Arrays.fill(upstreamCount, 0);
-            Arrays.fill(receiverIndex, -1);
-            Arrays.fill(flowAccumulation, 1.0); // Base precipitation contribution
+        // Step 2: Compute flow accumulation using continuous characteristic integration
+        // (TECHSPEC_AMEND001: ∇·(Af V) = q, solved by integrating along characteristics)
+        // No D8 receivers - each cell traces upstream independently.
+        for (int gz = 0; gz < GRID_DIM; gz++) {
+            for (int gx = 0; gx < GRID_DIM; gx++) {
+                int currentIdx = (gz * GRID_DIM) + gx;
+                double wx = gridOriginX + (gx * CELL_SIZE);
+                double wz = gridOriginZ + (gz * CELL_SIZE);
 
-            // Step 2: Determine steepest D8 downhill neighbor for all cells
-            for (int gz = 0; gz < GRID_DIM; gz++) {
-                for (int gx = 0; gx < GRID_DIM; gx++) {
-                    int currentIdx = (gz * GRID_DIM) + gx;
-                    double currentH = elevation[currentIdx];
-
-                    double maxSlope = 0.0;
-                    int steepestNeighbor = -1;
-
-                    for (int ddz = -1; ddz <= 1; ddz++) {
-                        int nz = gz + ddz;
-                        if (nz < 0 || nz >= GRID_DIM) continue;
-
-                        for (int ddx = -1; ddx <= 1; ddx++) {
-                            if (ddx == 0 && ddz == 0) continue;
-                            int nx = gx + ddx;
-                            if (nx < 0 || nx >= GRID_DIM) continue;
-
-                            int neighborIdx = (nz * GRID_DIM) + nx;
-                            double neighborH = elevation[neighborIdx];
-
-                            if (neighborH < currentH) {
-                                double dist = (ddx != 0 && ddz != 0) ? (CELL_SIZE * 1.41421356) : CELL_SIZE;
-                                double slope = (currentH - neighborH) / dist;
-
-                                if (slope > maxSlope) {
-                                    maxSlope = slope;
-                                    steepestNeighbor = neighborIdx;
-                                }
-                            }
+                // Find outlet reference (lowest neighbor) for potential computation
+                double lowestNeighborElev = elevation[currentIdx];
+                int lowestNeighborIdx = -1;
+                for (int ddz = -1; ddz <= 1; ddz++) {
+                    int nz = gz + ddz;
+                    if (nz < 0 || nz >= GRID_DIM) continue;
+                    for (int ddx = -1; ddx <= 1; ddx++) {
+                        if (ddx == 0 && ddz == 0) continue;
+                        int nx = gx + ddx;
+                        if (nx < 0 || nx >= GRID_DIM) continue;
+                        int neighborIdx = (nz * GRID_DIM) + nx;
+                        if (elevation[neighborIdx] < lowestNeighborElev) {
+                            lowestNeighborElev = elevation[neighborIdx];
+                            lowestNeighborIdx = neighborIdx;
                         }
                     }
+                }
 
-                    // Flat/pit resolution: if no downhill neighbor, use lowest neighbor
-                    // with index-ordered tie-breaking to guarantee acyclic graph (DAG)
-                    if (steepestNeighbor == -1) {
-                        for (int ddz = -1; ddz <= 1; ddz++) {
-                            int nz = gz + ddz;
-                            if (nz < 0 || nz >= GRID_DIM) continue;
+                // Compute outlet reference point
+                double outletX = wx;
+                double outletZ = wz;
+                if (lowestNeighborIdx >= 0) {
+                    outletX = gridOriginX + ((lowestNeighborIdx % GRID_DIM) * CELL_SIZE);
+                    outletZ = gridOriginZ + ((lowestNeighborIdx / GRID_DIM) * CELL_SIZE);
+                }
 
-                            for (int ddx = -1; ddx <= 1; ddx++) {
-                                if (ddx == 0 && ddz == 0) continue;
-                                int nx = gx + ddx;
-                                if (nx < 0 || nx >= GRID_DIM) continue;
+                // Compute flow accumulation by integrating along characteristics
+                // This solves ∇·(Af V) = q by tracing upstream and integrating source density
+                flowAccumulation[currentIdx] = accumulator.computeAccumulation(
+                    kernel, wx, wz, outletX, outletZ);
+            }
+        }
 
-                                int neighborIdx = (nz * GRID_DIM) + nx;
-                                if (neighborIdx > currentIdx) continue; // index-ordered tie-break
+        // Step 3: Derive D8 receiver index from continuous vector field (for topology extraction)
+        // This is derived, not used for accumulation computation.
+        Arrays.fill(inDegree, 0);
+        Arrays.fill(upstreamCount, 0);
+        Arrays.fill(receiverIndex, -1);
 
-                                if (elevation[neighborIdx] < elevation[currentIdx]) {
-                                    steepestNeighbor = neighborIdx;
-                                    break; // found strictly lower neighbor
-                                }
-                                // On flats: allow flow to lower-index neighbor
-                                if (Math.abs(elevation[neighborIdx] - elevation[currentIdx]) < 1e-6) {
-                                    steepestNeighbor = neighborIdx;
-                                }
-                            }
+        for (int gz = 0; gz < GRID_DIM; gz++) {
+            for (int gx = 0; gx < GRID_DIM; gx++) {
+                int currentIdx = (gz * GRID_DIM) + gx;
+                double wx = gridOriginX + (gx * CELL_SIZE);
+                double wz = gridOriginZ + (gz * CELL_SIZE);
+
+                // Find outlet reference (lowest neighbor)
+                double lowestNeighborElev = elevation[currentIdx];
+                int lowestNeighborIdx = -1;
+                for (int ddz = -1; ddz <= 1; ddz++) {
+                    int nz = gz + ddz;
+                    if (nz < 0 || nz >= GRID_DIM) continue;
+                    for (int ddx = -1; ddx <= 1; ddx++) {
+                        if (ddx == 0 && ddz == 0) continue;
+                        int nx = gx + ddx;
+                        if (nx < 0 || nx >= GRID_DIM) continue;
+                        int neighborIdx = (nz * GRID_DIM) + nx;
+                        if (elevation[neighborIdx] < lowestNeighborElev) {
+                            lowestNeighborElev = elevation[neighborIdx];
+                            lowestNeighborIdx = neighborIdx;
                         }
                     }
+                }
 
-                    receiverIndex[currentIdx] = steepestNeighbor;
-                    if (steepestNeighbor != -1) {
-                        inDegree[steepestNeighbor]++;
-                        upstreamCount[steepestNeighbor]++;
+                double outletX = wx;
+                double outletZ = wz;
+                if (lowestNeighborIdx >= 0) {
+                    outletX = gridOriginX + ((lowestNeighborIdx % GRID_DIM) * CELL_SIZE);
+                    outletZ = gridOriginZ + ((lowestNeighborIdx / GRID_DIM) * CELL_SIZE);
+                }
+
+                // Get drainage vector from continuous field
+                double[] v = potential.drainageVector(kernel, wx, wz, outletX, outletZ);
+
+                // Derive downstream receiver by projecting onto 8 directions
+                // (derived topology, not used for accumulation)
+                int bestIdx = -1;
+                double bestDot = -1.0;
+                for (int ddz = -1; ddz <= 1; ddz++) {
+                    int nz = gz + ddz;
+                    if (nz < 0 || nz >= GRID_DIM) continue;
+                    for (int ddx = -1; ddx <= 1; ddx++) {
+                        if (ddx == 0 && ddz == 0) continue;
+                        int nx = gx + ddx;
+                        if (nx < 0 || nx >= GRID_DIM) continue;
+                        int neighborIdx = (nz * GRID_DIM) + nx;
+                        double elevDiff = elevation[currentIdx] - elevation[neighborIdx];
+                        if (elevDiff < -1e-6) continue;
+                        double dot = v[0] * ddx + v[1] * ddz;
+                        if (dot > bestDot) {
+                            bestDot = dot;
+                            bestIdx = neighborIdx;
+                        }
                     }
                 }
-            }
 
-            // Step 3: Kahn's Algorithm for topological flow accumulation (§27)
-            int head = 0;
-            int tail = 0;
-            for (int i = 0; i < TOTAL_CELLS; i++) {
-                if (inDegree[i] == 0) {
-                    topoQueue[tail++] = i;
-                }
-            }
-
-            while (head < tail) {
-                int u = topoQueue[head++];
-                int v = receiverIndex[u];
-
-                if (v != -1) {
-                    // Downstream cell accumulates full upstream catchment discharge
-                    flowAccumulation[v] += flowAccumulation[u];
-                    inDegree[v]--;
-                    if (inDegree[v] == 0) {
-                        topoQueue[tail++] = v;
-                    }
+                receiverIndex[currentIdx] = bestIdx;
+                if (bestIdx != -1) {
+                    inDegree[bestIdx]++;
+                    upstreamCount[bestIdx]++;
                 }
             }
         }
 
-        // Step 4: Reset topology labels so the graph is clean before
-        // HydrologyField.analyze runs (basin/confluence ordinals are
-        // -1 sentinels until then).
+        // Step 4: Reset topology labels
         Arrays.fill(basinCell, -1);
         Arrays.fill(confluenceCell, -1);
         basinCount = 0;

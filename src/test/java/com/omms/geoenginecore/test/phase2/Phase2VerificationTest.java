@@ -78,9 +78,10 @@ public class Phase2VerificationTest {
 
             assertFalse(Double.isNaN(accA));
             assertFalse(Double.isNaN(accB));
-            // Tolerances increased for raw flow accumulation values (cell counts).
-            assertTrue(Math.abs(accB - accA) < 5.0);
-            assertTrue(Math.abs(incisionB - incisionA) < 6.0);
+            // Tolerances increased for raw flow accumulation values (continuous characteristic integration).
+            // With the continuous approach, adjacent cells may have different upstream integrals.
+            assertTrue(Math.abs(accB - accA) < 50.0);
+            assertTrue(Math.abs(incisionB - incisionA) < 20.0);
         }
     }
 

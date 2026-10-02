@@ -18,6 +18,8 @@ public final class RiverField {
     private final double maxIncisionDepth;
     /** Steepness of the saturating flow-strength response. */
     private final double channelSteepness;
+    /** Minimum flow accumulation to initiate a channel (TECHSPEC_AMEND001 A3.1). */
+    private final double minAccumulation;
 
     /**
      * @param config validated configuration supplying the incision parameters
@@ -25,6 +27,7 @@ public final class RiverField {
     public RiverField(GeoConfig config) {
         this.maxIncisionDepth = config.riverMaxIncision();
         this.channelSteepness = config.riverChannelSteepness();
+        this.minAccumulation = config.minRiverAccumulation();
     }
 
     /**
@@ -45,13 +48,13 @@ public final class RiverField {
      */
     public double computeIncision(double flowAccumulation, double slopeMagnitude,
                                   double climateMultiplier, double channelFactor) {
-        // Raw cell count threshold aligned with ChannelField.CHANNEL_INITIATION_FLOW
-        if (flowAccumulation <= ChannelField.CHANNEL_INITIATION_FLOW) {
+        // Raw cell count threshold aligned with ChannelField minAccumulation (A3.1)
+        if (flowAccumulation <= minAccumulation) {
             return 0.0;
         }
 
         // Incision starts just above channel initiation threshold
-        double incisionOffset = ChannelField.CHANNEL_INITIATION_FLOW - 3.0;
+        double incisionOffset = minAccumulation - 3.0;
         double flowStrength = 1.0 - Math.exp(-(flowAccumulation - incisionOffset) * channelSteepness);
         // Lowlands (slope ≈ 0) maintain a baseline of 0.65 for defined channels
         double slopeFactor = 0.65 + Math.min(1.85, slopeMagnitude * 1.5);

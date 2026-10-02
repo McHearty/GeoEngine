@@ -47,6 +47,16 @@ public final class ScalarFieldKernel implements FieldKernel {
     // Volumetric & Hydrology
     /** Bounded fluvial incision R (TECHSPEC §28). */
     private final RiverField riverField;
+    /** Channel width and profile with configurable initiation threshold (TECHSPEC_AMEND001 A3.1). */
+    private final ChannelField channelField;
+    /** Discrete realization of channel incision (TECHSPEC_AMEND001 A3.3). */
+    private final ChannelRealization channelRealization;
+    /** Bank geometry from continuous channel fields (TECHSPEC_AMEND001 A3.7). */
+    private final BankField bankField;
+    /** Lake topology detection from continuous fields (TECHSPEC_AMEND001 A3.11). */
+    private final LakeTopology lakeTopology;
+    /** Bounded multi-plate reconnection (TECHSPEC_AMEND001 A3.12). */
+    private final ReconnectionField reconnectionField;
     /** Volumetric 3-D rock warp W (TECHSPEC §41-§44). */
     private final WarpField warpField;
     /** Volumetric cave void field C (TECHSPEC §45-§48). */
@@ -109,10 +119,23 @@ public final class ScalarFieldKernel implements FieldKernel {
         this.climateField = new ClimateField(worldSeed, config);
         this.erosionField = new ErosionField(worldSeed, config);
         this.riverField = new RiverField(config);
+        this.channelField = new ChannelField(config);
+        this.channelRealization = new ChannelRealization(
+            config.stepDeltaY(), config.riverMaxIncision());
+        this.bankField = new BankField(
+            config.bankWidth(), config.bankSlope(), config.bankNoise(),
+            config.bankSteepFactor(), config.containmentBerm());
+        this.lakeTopology = new LakeTopology(
+            config.lakeMinArea(), config.lakeMaxArea());
+        this.reconnectionField = new ReconnectionField(
+            config.reconnectRadius(), config.maxReconnectionSamples(),
+            config.seaLevelExtension());
         this.warpField = new WarpField(worldSeed, config);
         this.caveField = new CaveField(worldSeed, config);
         this.drainageRouter = new DrainageRouter();
         this.drainageRouter.setDrainageIterations(config.drainageIterations());
+        this.drainageRouter.configure(config.gridSpacing(), config.plateScale(),
+            config.minRiverAccumulation(), config.meanderStrength(), config.smoothingPasses());
         this.hydrologyField = new HydrologyField();
 
         this.glacialField = new GlacialField(worldSeed, config);
@@ -152,6 +175,36 @@ public final class ScalarFieldKernel implements FieldKernel {
         double erosion = erosionField.evaluateErosion(warpx, warpz, age, climateMult, tectonic);
 
         return tectonic - erosion;
+    }
+
+    /**
+     * Computes the hydrology-local wetness field (TECHSPEC_AMEND001 A3.16).
+     *
+     * <p>Wetness is derived from the climate/humidity field and scaled
+     * by the wetness configuration parameters. This is separate from
+     * the global climate multiplier K and is used for the hydrological
+     * source density q in the flow accumulation computation.
+     *
+     * @param wx world-space X
+     * @param wz world-space Z
+     * @return hydrology-local wetness value
+     */
+    public double computeHydrologyWetness(double wx, double wz) {
+        double sx = stressWarp.getWarpX(wx, wz);
+        double sz = stressWarp.getWarpZ(wx, wz);
+        double warpx = wx + sx;
+        double warpz = wz + sz;
+
+        double temp = climateField.evaluateTemperature(warpx, warpz);
+        double humid = climateField.evaluateHumidity(warpx, warpz);
+
+        // Use humidity as the basis for wetness
+        // Interpolate between wetnessDryCutoff (0.0) and wetnessWetReference (1.0)
+        double wetness = (humid - config.wetnessDryCutoff()) / (config.wetnessWetReference() - config.wetnessDryCutoff());
+        wetness = Math.max(0.0, Math.min(1.0, wetness));
+
+        // Apply wetness multiplier
+        return wetness * config.wetnessMultiplier();
     }
 
     /**
@@ -257,7 +310,7 @@ public final class ScalarFieldKernel implements FieldKernel {
         // Note: channelFactor is not yet computed; use flowAcc as proxy
         if (profile.hasFluvialHydrology()) {
             double flowAcc = evaluateFullFlowAccumulation(wx, wz);
-            if (flowAcc > ChannelField.CHANNEL_INITIATION_FLOW) {
+            if (flowAcc > channelField.getMinAccumulation()) {
                 // Channel present: reduce erosion slightly
                 // (not too much to avoid exceeding incision budget)
                 sample.erosionLowering *= 0.95;
@@ -301,9 +354,9 @@ public final class ScalarFieldKernel implements FieldKernel {
             hydrologyField.analyze(graph, worldSeed, config.configHash(),
                 config.dimensionId(), config.generatorVersion(), regionX, regionZ);
             flowAcc = evaluateFullFlowAccumulation(wx, wz);
-            int routedCell = drainageRouter.cellIndexFor(regionX, regionZ, wx, wz);
+            int routedCell = drainageRouter.cellIndexFor(graph, regionX, regionZ, wx, wz);
             // Compute channel order from flow accumulation (needed for meandered channel factor)
-            if (flowAcc < ChannelField.CHANNEL_INITIATION_FLOW) {
+            if (flowAcc < channelField.getMinAccumulation()) {
                 sample.channelOrder = 0; // Overland
             } else if (flowAcc < 30.0) {
                 sample.channelOrder = 1; // Creek / Stream
@@ -329,7 +382,7 @@ public final class ScalarFieldKernel implements FieldKernel {
         sample.channelFactor = (float) channelFactor;
 
         // Channel half-width (used by adapter for corridor tests)
-        sample.channelHalfWidth = (float) com.omms.geoenginecore.hydrology.ChannelField.getWidth(flowAcc);
+        sample.channelHalfWidth = (float) channelField.getWidth(flowAcc);
 
         // Feature grammar (Phase 9 spec §31)
         // Simplified: detect confluence from graph, compute other features from local properties
@@ -632,7 +685,7 @@ public final class ScalarFieldKernel implements FieldKernel {
                     hydrologyField.analyze(graph, worldSeed, config.configHash(),
                         config.dimensionId(), config.generatorVersion(), regionX, regionZ);
                     flowAcc = evaluateFullFlowAccumulation(wx, wz);
-                    int routedCell = drainageRouter.cellIndexFor(regionX, regionZ, wx, wz);
+                    int routedCell = drainageRouter.cellIndexFor(graph, regionX, regionZ, wx, wz);
                     // §80: stable scoped basin / confluence identities.
                     basinId = hydrologyField.basinIdForCell(graph, routedCell);
                     confluenceId = hydrologyField.confluenceIdForCell(graph, routedCell);
@@ -755,7 +808,7 @@ public final class ScalarFieldKernel implements FieldKernel {
                     int regionX = (int) Math.floor(wx / (double) DrainageRouter.REGION_SPAN);
                     int regionZ = (int) Math.floor(wz / (double) DrainageRouter.REGION_SPAN);
                     DrainageGraph graph = drainageRouter.resolveGraph(this, worldSeed, config.configHash(), regionX, regionZ);
-                    int routedCell = drainageRouter.cellIndexFor(regionX, regionZ, wx, wz);
+                    int routedCell = drainageRouter.cellIndexFor(graph, regionX, regionZ, wx, wz);
                     scratchpad.distanceToThalwegGrid[cIdx] = (float) drainageRouter.signedDistanceToThalweg(
                         graph, routedCell, scratchpad.flowAccGrid[cIdx], order,
                         scratchpad.sample.gradMagnitude, wx, wz, worldSeed, scratchpad.basinIdGrid[cIdx]);
@@ -764,7 +817,7 @@ public final class ScalarFieldKernel implements FieldKernel {
                     scratchpad.featureMaskGrid[cIdx] = (byte) FeatureGrammar.computeFeatureMask(
                         order, scratchpad.flowAccGrid[cIdx], scratchpad.sample.gradMagnitude,
                         scratchpad.laplacianGrid[cIdx], scratchpad.distanceToThalwegGrid[cIdx],
-                        ChannelField.getWidth(scratchpad.flowAccGrid[cIdx]) * 0.5,
+                        channelField.getWidth(scratchpad.flowAccGrid[cIdx]) * 0.5,
                         scratchpad.confluenceIdGrid[cIdx] != 0L, false, false, false, 0.0);
 
                     // Cross-section asymmetry (Phase 9 Sprint R5)

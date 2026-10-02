@@ -46,7 +46,15 @@ public class Phase1CoreVerificationTest {
     @DisplayName("Configuration validation")
     void testConfigurationValidation() {
         assertThrows(IllegalArgumentException.class, () -> 
-            new GeoConfig(1, 0, 100, 50, 64, 0.001, 0.002, 0.003, 100, 100, 100, 2.0, 0.001, 10.0, 0.5, 0.001, 0.001, 0.001, 0.6, 1.4, 0.001, 10.0, 16.0, 16, 48.0, 0.35, 1, -40, 128));
+            buildInvalidConfig());
+    }
+
+    private GeoConfig buildInvalidConfig() {
+        return new GeoConfig(1, 0, 100, 50, 64, 0.001, 0.002, 0.003, 100, 100, 100, 2.0, 0.001, 10.0, 0.5, 0.001, 0.001, 0.001, 0.6, 1.4, 0.001, 10.0, 16.0, 16, 48.0, 0.35, 1, -40, 128,
+            // TECHSPEC_AMEND001 defaults
+            256.0, 16.0, 4.0, 14.0, 2.0, 14.0, 0.24, 48.0, 1.0, 0.5, 3,
+            4.0, 0.5, 0.1, 1.0, 32.0, 0.5, 100.0, 10000.0, 64.0, 8,
+            true, "", 100, 0.0, 0.5, 1.0);
     }
 
     /**

@@ -5,16 +5,15 @@ import java.util.List;
 
 /**
  * First-class hydrology layer (TECHSPEC §222): basin identification
- * and confluence detection on top of the authoritative drainage
- * graphs, as §26 requires the coarse graph to establish basin
- * connectivity, confluences, and outlets.
+ * and confluence detection on top of the continuous drainage-field
+ * model, establishing basin connectivity, confluences, and outlets.
  *
- * <p>Basin identification is topological, not heuristic: a basin is
- * the exact set of routing cells whose downstream walk terminates at
- * one regional sink. Elevation strictly decreases along the receiver
- * chain, so every walk terminates, and the basin partition is
- * disjoint, complete, deterministic, and independent of
- * chunk-generation order.
+ * <p>The drainage vector field is derived from the outlet-aware
+ * potential Φ = H₀ + λ·D_outlet, and flow accumulation Af is computed
+ * by propagating discharge downstream along the continuous vector
+ * field. Basin identification remains topological: a basin is the
+ * exact set of routing cells whose downstream walk terminates at
+ * one regional sink.
  *
  * <p>Stable basin and confluence IDs (§80) mix the generator
  * version, dimension, world seed, configuration hash, region, and
@@ -98,7 +97,7 @@ public final class HydrologyField {
             if (g.topologyAnalyzed) {
                 return;
             }
-            final int n = DrainageGraph.TOTAL_CELLS;
+            final int n = g.TOTAL_CELLS;
 
             // Pass 1: resolve each cell's terminal regional sink.
             // The walk is bounded: elevation strictly decreases along
@@ -202,7 +201,7 @@ public final class HydrologyField {
         for (int b = 0; b < g.basinCount; b++) {
             int sink = g.basinSinkCell[b];
             int count = 0;
-            for (int i = 0; i < DrainageGraph.TOTAL_CELLS; i++) {
+            for (int i = 0; i < g.TOTAL_CELLS; i++) {
                 if (g.basinCell[i] == b) {
                     count++;
                 }
@@ -242,7 +241,7 @@ public final class HydrologyField {
      * {@code ordinal}.
      */
     private static int firstConfluenceCell(DrainageGraph g, int ordinal) {
-        for (int i = 0; i < DrainageGraph.TOTAL_CELLS; i++) {
+        for (int i = 0; i < g.TOTAL_CELLS; i++) {
             if (g.confluenceCell[i] == ordinal) {
                 return i;
             }

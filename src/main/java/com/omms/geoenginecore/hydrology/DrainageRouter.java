@@ -18,15 +18,41 @@ import com.omms.geoenginecore.math.GeoMath;
  * graph is kept in the worker scratchpad (TECHSPEC §65-§66).
  */
 public final class DrainageRouter {
-    /** Region span in blocks (256). */
-    public static final int REGION_SPAN = DrainageGraph.CORE_CELLS * DrainageGraph.CELL_SIZE;
-    /** One-cell (16-block) seam transition margin. */
+    /** Default region span in blocks (256). */
+    public static final int REGION_SPAN = 256;
+    /** Default one-cell (16-block) seam transition margin. */
     public static final double BLEND_MARGIN = 16.0;
+    /** Configured region span in blocks (A2.2 plateScale). */
+    private int regionSpan = REGION_SPAN;
+    /** Configured one-cell (gridSpacing-block) seam transition margin. */
+    private double blendMargin = BLEND_MARGIN;
+    /** Configured minimum river accumulation threshold (A3.1). */
+    private double minAccumulation = ChannelField.CHANNEL_INITIATION_FLOW;
+    /** Configured meander field (A3.6). */
+    private MeanderField meanderField = new MeanderField();
 
     /** LRU cache of built region graphs. */
     private final HydrologyRegionCache regionCache = new HydrologyRegionCache();
     /** Fixed-iteration count K for bounded drainage refinement. */
     private int drainageIterations = 1;
+
+    /**
+     * Configures the region span, blend margin, minimum accumulation,
+     * and meander parameters from TECHSPEC_AMEND001 parameters (A2.2, A3.1, A3.6).
+     *
+     * @param gridSpacing routing cell size in blocks
+     * @param plateScale plate/region size in blocks
+     * @param minAccumulation minimum flow accumulation to initiate a channel
+     * @param meanderStrength meander amplitude strength (0.0-1.0)
+     * @param smoothingPasses number of smoothing passes (0-10)
+     */
+    public void configure(double gridSpacing, double plateScale, double minAccumulation,
+                          double meanderStrength, int smoothingPasses) {
+        this.blendMargin = Math.max(4.0, gridSpacing);
+        this.regionSpan = (int) Math.max(64.0, plateScale);
+        this.minAccumulation = Math.max(0.0, minAccumulation);
+        this.meanderField = new MeanderField(meanderStrength, smoothingPasses);
+    }
 
     /**
      * Computes the authoritative D8 flow accumulation A_f with
@@ -44,37 +70,37 @@ public final class DrainageRouter {
      * @return flow accumulation proxy A_f, ≥ 0
      */
     public double computeAccumulationProxy(ScalarFieldKernel kernel, long worldSeed, long configHash, double wx, double wz) {
-        int rx = (int) Math.floor(wx / (double) REGION_SPAN);
-        int rz = (int) Math.floor(wz / (double) REGION_SPAN);
+        int rx = (int) Math.floor(wx / (double) regionSpan);
+        int rz = (int) Math.floor(wz / (double) regionSpan);
 
-        double localX = wx - (rx * REGION_SPAN);
-        double localZ = wz - (rz * REGION_SPAN);
+        double localX = wx - (rx * regionSpan);
+        double localZ = wz - (rz * regionSpan);
 
         // Primary region graph
         DrainageGraph primaryGraph = getGraph(kernel, worldSeed, configHash, rx, rz);
         double primaryAcc = primaryGraph.sampleAccumulation(wx, wz);
 
         // --- Seamless Boundary Blending (X-Axis) ---
-        if (localX < BLEND_MARGIN) {
-            double u = (localX + BLEND_MARGIN) / (2.0 * BLEND_MARGIN); // 0.0 at -16 -> 0.5 at 0 -> 1.0 at +16
+        if (localX < blendMargin) {
+            double u = (localX + blendMargin) / (2.0 * blendMargin); // 0.0 at -16 -> 0.5 at 0 -> 1.0 at +16
             DrainageGraph westGraph = getGraph(kernel, worldSeed, configHash, rx - 1, rz);
             double westAcc = westGraph.sampleAccumulation(wx, wz);
             return (1.0 - u) * westAcc + u * primaryAcc;
-        } else if (localX > REGION_SPAN - BLEND_MARGIN) {
-            double u = (localX - (REGION_SPAN - BLEND_MARGIN)) / (2.0 * BLEND_MARGIN); // 0.0 at 240 -> 0.5 at 256 -> 1.0 at 272
+        } else if (localX > regionSpan - blendMargin) {
+            double u = (localX - (regionSpan - blendMargin)) / (2.0 * blendMargin); // 0.0 at 240 -> 0.5 at 256 -> 1.0 at 272
             DrainageGraph eastGraph = getGraph(kernel, worldSeed, configHash, rx + 1, rz);
             double eastAcc = eastGraph.sampleAccumulation(wx, wz);
             return (1.0 - u) * primaryAcc + u * eastAcc;
         }
 
         // --- Seamless Boundary Blending (Z-Axis) ---
-        if (localZ < BLEND_MARGIN) {
-            double v = (localZ + BLEND_MARGIN) / (2.0 * BLEND_MARGIN);
+        if (localZ < blendMargin) {
+            double v = (localZ + blendMargin) / (2.0 * blendMargin);
             DrainageGraph northGraph = getGraph(kernel, worldSeed, configHash, rx, rz - 1);
             double northAcc = northGraph.sampleAccumulation(wx, wz);
             return (1.0 - v) * northAcc + v * primaryAcc;
-        } else if (localZ > REGION_SPAN - BLEND_MARGIN) {
-            double v = (localZ - (REGION_SPAN - BLEND_MARGIN)) / (2.0 * BLEND_MARGIN);
+        } else if (localZ > regionSpan - blendMargin) {
+            double v = (localZ - (regionSpan - blendMargin)) / (2.0 * blendMargin);
             DrainageGraph southGraph = getGraph(kernel, worldSeed, configHash, rx, rz + 1);
             double southAcc = southGraph.sampleAccumulation(wx, wz);
             return (1.0 - v) * primaryAcc + v * southAcc;
@@ -122,8 +148,8 @@ public final class DrainageRouter {
         // into the register, displacing whatever occupied its home
         // slot. A displaced region re-resolves through the shared
         // cache without a rebuild.
-        int originX = rx * REGION_SPAN;
-        int originZ = rz * REGION_SPAN;
+        int originX = rx * regionSpan;
+        int originZ = rz * regionSpan;
         DrainageGraph graph = regionCache.getOrCompute(worldSeed, configHash, rx, rz, kernel, originX, originZ, this.drainageIterations);
 
         sp.hydrologyRegionKeys[home] = key;
@@ -184,14 +210,14 @@ public final class DrainageRouter {
      * @param wz world-space Z of the column
      * @return routing cell index in [0, TOTAL_CELLS)
      */
-    public int cellIndexFor(int rx, int rz, double wx, double wz) {
-        int gx = (int) Math.floor((wx - (rx * REGION_SPAN)) / (double) DrainageGraph.CELL_SIZE)
-            + DrainageGraph.HALO_CELLS;
-        int gz = (int) Math.floor((wz - (rz * REGION_SPAN)) / (double) DrainageGraph.CELL_SIZE)
-            + DrainageGraph.HALO_CELLS;
-        gx = GeoMath.clamp(gx, 0, DrainageGraph.GRID_DIM - 1);
-        gz = GeoMath.clamp(gz, 0, DrainageGraph.GRID_DIM - 1);
-        return gz * DrainageGraph.GRID_DIM + gx;
+    public int cellIndexFor(DrainageGraph graph, int rx, int rz, double wx, double wz) {
+        int gx = (int) Math.floor((wx - (rx * regionSpan)) / (double) graph.CELL_SIZE)
+            + graph.HALO_CELLS;
+        int gz = (int) Math.floor((wz - (rz * regionSpan)) / (double) graph.CELL_SIZE)
+            + graph.HALO_CELLS;
+        gx = GeoMath.clamp(gx, 0, graph.GRID_DIM - 1);
+        gz = GeoMath.clamp(gz, 0, graph.GRID_DIM - 1);
+        return gz * graph.GRID_DIM + gx;
     }
 
     /**
@@ -223,7 +249,7 @@ public final class DrainageRouter {
      * @return F_channel ∈ [0, 1]
      */
     public double evaluateChannelFactor(DrainageGraph graph, int routedCell, double flowAcc, double wx, double wz) {
-        double width = ChannelField.getWidth(flowAcc);
+        double width = ChannelField.getWidth(flowAcc, this.minAccumulation);
         if (width <= 0.0) {
             return 0.0;
         }
@@ -237,7 +263,7 @@ public final class DrainageRouter {
         double best = d0;
         int cur = routedCell;
         int hops = 0;
-        while (cur >= 0 && hops++ < DrainageGraph.TOTAL_CELLS) {
+        while (cur >= 0 && hops++ < graph.TOTAL_CELLS) {
             int next = graph.receiverIndex[cur];
             if (next < 0 || next == cur) {
                 break; // Regional sink or self-loop: the path ends
@@ -272,7 +298,7 @@ public final class DrainageRouter {
     public double evaluateChannelFactorMeandered(DrainageGraph graph, int routedCell,
                                                   double flowAcc, int channelOrder, double slope,
                                                   double wx, double wz, long seed, long basinId) {
-        double width = ChannelField.getWidth(flowAcc);
+        double width = ChannelField.getWidth(flowAcc, this.minAccumulation);
         if (width <= 0.0) {
             return 0.0;
         }
@@ -289,7 +315,7 @@ public final class DrainageRouter {
         int cur = routedCell;
         double arcLength = 0.0;
         int hops = 0;
-        while (cur >= 0 && hops++ < DrainageGraph.TOTAL_CELLS) {
+        while (cur >= 0 && hops++ < graph.TOTAL_CELLS) {
             int next = graph.receiverIndex[cur];
             if (next < 0 || next == cur) {
                 break; // Regional sink or self-loop: the path ends
@@ -330,9 +356,9 @@ public final class DrainageRouter {
                 // Meander offset at sub-segment endpoints
                 double arcT1 = arcLength + t1 * len;
                 double arcT2 = arcLength + t2 * len;
-                double offsetT1 = MeanderField.offset(channelOrder, slope, halfWidth,
+                double offsetT1 = meanderField.meanderOffset(channelOrder, slope, halfWidth,
                     seed, basinId, arcT1);
-                double offsetT2 = MeanderField.offset(channelOrder, slope, halfWidth,
+                double offsetT2 = meanderField.meanderOffset(channelOrder, slope, halfWidth,
                     seed, basinId, arcT2);
 
                 // Compute distance to meandered sub-segment
@@ -377,7 +403,7 @@ public final class DrainageRouter {
     public double signedDistanceToThalweg(DrainageGraph graph, int routedCell,
                                           double flowAcc, int channelOrder, double slope,
                                           double wx, double wz, long seed, long basinId) {
-        double width = ChannelField.getWidth(flowAcc);
+        double width = ChannelField.getWidth(flowAcc, this.minAccumulation);
         if (width <= 0.0) {
             return 0.0;
         }
@@ -389,7 +415,7 @@ public final class DrainageRouter {
         double bestDist = Double.MAX_VALUE;
         double bestSignedDist = 0.0;
 
-        while (cur >= 0 && hops++ < DrainageGraph.TOTAL_CELLS) {
+        while (cur >= 0 && hops++ < graph.TOTAL_CELLS) {
             int next = graph.receiverIndex[cur];
             if (next < 0 || next == cur) {
                 break;

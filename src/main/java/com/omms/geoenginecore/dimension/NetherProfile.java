@@ -37,7 +37,35 @@ public final class NetherProfile implements DimensionProfile {
             16,
             0.0, 0.01,
             1,                  // drainageIterations: single pass
-            10, 110
+            10, 110,
+            // TECHSPEC_AMEND001: default values for new parameters
+            256.0,  // plateScale
+            16.0,   // gridSpacing
+            4.0,    // terrainSampleSpacing
+            14.0,   // minRiverAccumulation
+            2.0,    // baseWidth
+            14.0,   // maxWidth
+            0.24,   // widthScale
+            0.0,    // streamDepth (Nether has no fluvial)
+            1.0,    // stepDeltaY
+            0.5,    // meanderStrength
+            3,      // smoothingPasses
+            4.0,    // bankWidth
+            0.5,    // bankSlope
+            0.1,    // bankNoise
+            1.0,    // bankSteepFactor
+            32.0,   // valleySnapRadius
+            0.5,    // containmentBerm
+            100.0,  // lakeMinArea
+            10000.0,// lakeMaxArea
+            64.0,   // reconnectRadius
+            8,      // seaLevelExtension
+            true,   // connectNearbyWater
+            "",     // outletBiomes
+            100,    // maxReconnectionSamples
+            0.0,    // wetnessDryCutoff
+            0.5,    // wetnessWetReference
+            1.0     // wetnessMultiplier
         );
     }
 

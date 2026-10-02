@@ -68,7 +68,70 @@ public record GeoConfig(
     /** Inclusive lower Y of the cave placement envelope. */
     int caveMinY,
     /** Upper Y of the cave placement envelope. */
-    int caveMaxY
+    int caveMaxY,
+    // TECHSPEC_AMEND001: Plate/region partition (A2, A7)
+    /** Plate scale in blocks; larger = fewer, bigger plates (A2.2). */
+    double plateScale,
+    /** Routing grid cell size in blocks (A2.2). */
+    double gridSpacing,
+    /** Terrain sample spacing in blocks (A2.2). */
+    double terrainSampleSpacing,
+    // TECHSPEC_AMEND001: Channel identification (A3.1, A7)
+    /** Minimum flow accumulation required to identify a channel (A3.1). */
+    double minRiverAccumulation,
+    // TECHSPEC_AMEND001: Channel width (A3.2, A7)
+    /** Minimum channel half-width in blocks (A3.2). */
+    double baseWidth,
+    /** Maximum channel half-width in blocks (A3.2). */
+    double maxWidth,
+    /** Width growth scale factor (A3.2). */
+    double widthScale,
+    // TECHSPEC_AMEND001: Incision (A3.3, A7)
+    /** Continuous channel incision magnitude (A3.3). */
+    double streamDepth,
+    /** Vertical quantization step for discrete realization (A3.3). */
+    double stepDeltaY,
+    // TECHSPEC_AMEND001: Meander (A3.6, A7)
+    /** Meander amplitude strength (A3.6). */
+    double meanderStrength,
+    /** Number of deterministic smoothing passes (A3.6). */
+    int smoothingPasses,
+    // TECHSPEC_AMEND001: Bank geometry (A3.7, A7)
+    /** Bank width in blocks (A3.7). */
+    double bankWidth,
+    /** Bank slope steepness (A3.7). */
+    double bankSlope,
+    /** Bank noise amplitude for natural variation (A3.7). */
+    double bankNoise,
+    /** Bank steepness factor (A3.7). */
+    double bankSteepFactor,
+    /** Valley snap search radius in blocks (A3.7). */
+    double valleySnapRadius,
+    /** Containment berm height (A3.7). */
+    double containmentBerm,
+    // TECHSPEC_AMEND001: Lake topology (A3.11, A7)
+    /** Minimum lake area for recognition (A3.11). */
+    double lakeMinArea,
+    /** Maximum lake area for recognition (A3.11). */
+    double lakeMaxArea,
+    // TECHSPEC_AMEND001: Reconnection (A3.12, A7)
+    /** Maximum reconnection search radius in blocks (A3.12). */
+    double reconnectRadius,
+    /** Sea level extension for reconnection (A3.12). */
+    int seaLevelExtension,
+    /** Connect to nearby water bodies (A3.12). */
+    boolean connectNearbyWater,
+    /** Outlet biome filter (A3.12). */
+    String outletBiomes,
+    /** Maximum reconnection candidate evaluations (A3.12). */
+    int maxReconnectionSamples,
+    // TECHSPEC_AMEND001: Wetness (A3.16, A7)
+    /** Dry cutoff for hydrology wetness (A3.16). */
+    double wetnessDryCutoff,
+    /** Wet reference for hydrology wetness (A3.16). */
+    double wetnessWetReference,
+    /** Wetness multiplier for hydrology influence (A3.16). */
+    double wetnessMultiplier
 ) {
     /**
      * Validates the configuration (TECHSPEC §64).
@@ -157,6 +220,52 @@ public record GeoConfig(
         if (drainageIterations < 1 || drainageIterations > 8) {
             throw new IllegalArgumentException("drainageIterations must be in [1, 8]");
         }
+
+        // TECHSPEC_AMEND001: Validate plate/region partition parameters (A7)
+        if (plateScale <= 0.0 || gridSpacing <= 0.0 || terrainSampleSpacing <= 0.0) {
+            throw new IllegalArgumentException("Plate partition parameters must be positive");
+        }
+
+        // TECHSPEC_AMEND001: Validate channel width parameters (A7)
+        if (baseWidth < 0.0 || maxWidth < baseWidth || widthScale < 0.0) {
+            throw new IllegalArgumentException("Invalid channel width: 0 <= baseWidth <= maxWidth, widthScale >= 0");
+        }
+
+        // TECHSPEC_AMEND001: Validate incision parameters (A7)
+        if (streamDepth < 0.0 || stepDeltaY <= 0.0) {
+            throw new IllegalArgumentException("streamDepth >= 0, stepDeltaY > 0");
+        }
+
+        // TECHSPEC_AMEND001: Validate meander parameters (A7)
+        if (meanderStrength < 0.0 || smoothingPasses < 0) {
+            throw new IllegalArgumentException("meanderStrength >= 0, smoothingPasses >= 0");
+        }
+
+        // TECHSPEC_AMEND001: Validate bank geometry parameters (A7)
+        if (bankWidth < 0.0 || bankSlope < 0.0 || bankNoise < 0.0 || bankSteepFactor < 0.0
+            || valleySnapRadius < 0.0 || containmentBerm < 0.0) {
+            throw new IllegalArgumentException("Bank geometry parameters must be non-negative");
+        }
+
+        // TECHSPEC_AMEND001: Validate lake topology parameters (A7)
+        if (lakeMinArea < 0.0 || lakeMaxArea < lakeMinArea) {
+            throw new IllegalArgumentException("Invalid lake areas: 0 <= lakeMinArea <= lakeMaxArea");
+        }
+
+        // TECHSPEC_AMEND001: Validate reconnection parameters (A7)
+        if (reconnectRadius < 0.0 || maxReconnectionSamples <= 0) {
+            throw new IllegalArgumentException("reconnectRadius >= 0, maxReconnectionSamples > 0");
+        }
+
+        // TECHSPEC_AMEND001: Validate wetness parameters (A7)
+        if (wetnessDryCutoff < 0.0 || wetnessWetReference <= wetnessDryCutoff || wetnessMultiplier < 0.0) {
+            throw new IllegalArgumentException("Invalid wetness: 0 <= dryCutoff < wetReference, multiplier >= 0");
+        }
+
+        // TECHSPEC_AMEND001: Validate minRiverAccumulation (A3.1)
+        if (minRiverAccumulation < 0.0) {
+            throw new IllegalArgumentException("minRiverAccumulation must be non-negative");
+        }
     }
 
     /**
@@ -180,6 +289,34 @@ public record GeoConfig(
         h = 31 * h + seaLevel;
         h = 31 * h + generatorVersion;
         h = 31 * h + drainageIterations;
+        // TECHSPEC_AMEND001: Include new parameters in config hash
+        h = 31 * h + Double.doubleToLongBits(plateScale);
+        h = 31 * h + Double.doubleToLongBits(gridSpacing);
+        h = 31 * h + Double.doubleToLongBits(terrainSampleSpacing);
+        h = 31 * h + Double.doubleToLongBits(minRiverAccumulation);
+        h = 31 * h + Double.doubleToLongBits(baseWidth);
+        h = 31 * h + Double.doubleToLongBits(maxWidth);
+        h = 31 * h + Double.doubleToLongBits(widthScale);
+        h = 31 * h + Double.doubleToLongBits(streamDepth);
+        h = 31 * h + Double.doubleToLongBits(stepDeltaY);
+        h = 31 * h + Double.doubleToLongBits(meanderStrength);
+        h = 31 * h + smoothingPasses;
+        h = 31 * h + Double.doubleToLongBits(bankWidth);
+        h = 31 * h + Double.doubleToLongBits(bankSlope);
+        h = 31 * h + Double.doubleToLongBits(bankNoise);
+        h = 31 * h + Double.doubleToLongBits(bankSteepFactor);
+        h = 31 * h + Double.doubleToLongBits(valleySnapRadius);
+        h = 31 * h + Double.doubleToLongBits(containmentBerm);
+        h = 31 * h + Double.doubleToLongBits(lakeMinArea);
+        h = 31 * h + Double.doubleToLongBits(lakeMaxArea);
+        h = 31 * h + Double.doubleToLongBits(reconnectRadius);
+        h = 31 * h + seaLevelExtension;
+        h = 31 * h + (connectNearbyWater ? 1 : 0);
+        h = 31 * h + outletBiomes.hashCode();
+        h = 31 * h + maxReconnectionSamples;
+        h = 31 * h + Double.doubleToLongBits(wetnessDryCutoff);
+        h = 31 * h + Double.doubleToLongBits(wetnessWetReference);
+        h = 31 * h + Double.doubleToLongBits(wetnessMultiplier);
         return h ^ (h >>> 32);
     }
 
@@ -220,7 +357,35 @@ public record GeoConfig(
             0.035,              // riverChannelSteepness: Progressive incision along drainage paths (calibrated for A_f=14 threshold, Phase 9 Sprint H1)
             1,                  // drainageIterations: single pass (TECHSPEC §24)
             -40,                // caveMinY
-            128                 // caveMaxY
+            128,                // caveMaxY
+            // TECHSPEC_AMEND001 defaults (backward-compatible with existing behavior)
+            256.0,              // plateScale: 256-block plates (matches current 24×24 grid)
+            16.0,               // gridSpacing: 16-block routing cells (matches current CELL_SIZE)
+            4.0,                // terrainSampleSpacing: 4-block terrain samples
+            14.0,               // minRiverAccumulation: matches existing CHANNEL_INITIATION_FLOW
+            2.0,                // baseWidth: 2-block minimum channel half-width
+            14.0,               // maxWidth: 14-block maximum channel half-width
+            0.24,               // widthScale: matches existing width formula scaling
+            18.0,               // streamDepth: matches riverMaxIncision
+            1.0,                // stepDeltaY: 1-block vertical steps (default)
+            0.5,                // meanderStrength: moderate meander
+            3,                  // smoothingPasses: 3 smoothing iterations
+            4.0,                // bankWidth: 4-block bank width
+            0.5,                // bankSlope: moderate bank slope
+            0.1,                // bankNoise: subtle natural variation
+            1.0,                // bankSteepFactor: standard steepness
+            32.0,               // valleySnapRadius: 32-block snap search
+            0.5,                // containmentBerm: small berm
+            100.0,              // lakeMinArea: 100-block minimum lake area
+            10000.0,            // lakeMaxArea: 10000-block maximum lake area
+            64.0,               // reconnectRadius: 64-block reconnection search
+            8,                  // seaLevelExtension: 8-block sea level extension
+            true,               // connectNearbyWater: connect to nearby water
+            "",                 // outletBiomes: no biome filter
+            100,                // maxReconnectionSamples: 100 max candidates
+            0.0,                // wetnessDryCutoff: 0.0 dry cutoff
+            0.5,                // wetnessWetReference: 0.5 wet reference
+            1.0                 // wetnessMultiplier: standard multiplier
         );
     }
 
@@ -271,7 +436,35 @@ public record GeoConfig(
             0.035,              // riverChannelSteepness (calibrated for A_f=14 threshold, Phase 9 Sprint H1)
             2,                  // drainageIterations: two-pass for stabler corridors (was 1)
             -40,                // caveMinY
-            128                 // caveMaxY
+            128,                // caveMaxY
+            // TECHSPEC_AMEND001 defaults (same as defaultOverworld)
+            256.0,              // plateScale
+            16.0,               // gridSpacing
+            4.0,                // terrainSampleSpacing
+            14.0,               // minRiverAccumulation
+            2.0,                // baseWidth
+            14.0,               // maxWidth
+            0.24,               // widthScale
+            28.0,               // streamDepth: matches deeper incision
+            1.0,                // stepDeltaY
+            0.5,                // meanderStrength
+            3,                  // smoothingPasses
+            4.0,                // bankWidth
+            0.5,                // bankSlope
+            0.1,                // bankNoise
+            1.0,                // bankSteepFactor
+            32.0,               // valleySnapRadius
+            0.5,                // containmentBerm
+            100.0,              // lakeMinArea
+            10000.0,            // lakeMaxArea
+            64.0,               // reconnectRadius
+            8,                  // seaLevelExtension
+            true,               // connectNearbyWater
+            "",                 // outletBiomes
+            100,                // maxReconnectionSamples
+            0.0,                // wetnessDryCutoff
+            0.5,                // wetnessWetReference
+            1.0                 // wetnessMultiplier
         );
     }
 
@@ -281,5 +474,32 @@ public record GeoConfig(
      */
     private static boolean isNonFinite(double value) {
         return Double.isNaN(value) || Double.isInfinite(value);
+    }
+
+    /**
+     * Returns a copy of this configuration with a different minimum
+     * river accumulation threshold (TECHSPEC_AMEND001 A3.1).
+     *
+     * @param minRiverAccumulation new threshold value
+     * @return new configuration with the modified threshold
+     */
+    public GeoConfig withMinRiverAccumulation(double minRiverAccumulation) {
+        return new GeoConfig(
+            generatorVersion, dimensionId, worldMinY, worldMaxY, seaLevel,
+            tectonicFreqLow, tectonicFreqA, tectonicFreqB,
+            tectonicAmpLow, tectonicAmpA, tectonicAmpB, upliftExponent,
+            stressFrequency, stressAmplitude, stressMaxJacobian,
+            epochFrequency, climateTempFrequency, climateHumidFrequency,
+            climateMin, climateMax, lapseRatePerBlock, baseErosionRate,
+            maxWarpAmplitude, surfaceBandRadius, riverMaxIncision,
+            riverChannelSteepness, drainageIterations, caveMinY, caveMaxY,
+            plateScale, gridSpacing, terrainSampleSpacing,
+            minRiverAccumulation,
+            baseWidth, maxWidth, widthScale, streamDepth, stepDeltaY,
+            meanderStrength, smoothingPasses, bankWidth, bankSlope,
+            bankNoise, bankSteepFactor, valleySnapRadius, containmentBerm,
+            lakeMinArea, lakeMaxArea, reconnectRadius, seaLevelExtension,
+            connectNearbyWater, outletBiomes, maxReconnectionSamples,
+            wetnessDryCutoff, wetnessWetReference, wetnessMultiplier);
     }
 }

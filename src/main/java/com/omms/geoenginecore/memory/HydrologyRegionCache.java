@@ -117,7 +117,10 @@ public final class HydrologyRegionCache {
         // Miss path: build the graph, then publish it under the stripe
         // lock so a concurrent reader never observes a key without its
         // graph.
-        DrainageGraph created = new DrainageGraph();
+        // TECHSPEC_AMEND001: Pass grid spacing and plate scale from config
+        DrainageGraph created = new DrainageGraph(
+            kernel.getProfile().getConfig().gridSpacing(),
+            kernel.getProfile().getConfig().plateScale());
         created.buildRegion(kernel, regionOriginX, regionOriginZ, drainageIterations);
 
         stripeLocks[stripe].lock();
